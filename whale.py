@@ -19,6 +19,9 @@ def send_telegram(message):
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
 
+# 👇 請在這裡加上這一行測試代碼 👇
+send_telegram("✅ 報告 PM：保險箱新密碼讀取成功！大鯨魚雷達正在守護中！")
+
 # 🌟 核心升級：記憶體改為「過去 5 分鐘」
 now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=5)
