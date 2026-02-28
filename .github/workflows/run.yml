@@ -39,3 +39,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
         run: python institutional.py
+
+      - name: 引擎四：AI 8-K 財報秒讀機
+        env: 
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python ai_analyst.py
