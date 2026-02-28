@@ -10,11 +10,32 @@ CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
 
 # 🌟 PM 客製化設定區 🌟
-MIN_WHALE_AMOUNT = 500000  # 提高門檻到 50 萬美金
-# 簡單示範 S&P 500 觀察名單 (您可以隨意增加 AAPL, MSFT, NVDA 等)
-WATCHLIST_TICKERS = ['NVDA', 'AAPL', 'MSFT', 'META', 'GOOGL', 'AMZN', 'TSLA'] 
-# 是否開啟「僅限觀察名單」模式？ True = 只看名單內, False = 看全市場
-STRICT_WATCHLIST = False 
+MIN_WHALE_AMOUNT = 500000  # 門檻：50 萬美金
+STRICT_WATCHLIST = True    # True = 啟動 S&P 500 過濾器！只看巨頭！
+
+# 🤖 爬蟲小幫手：自動獲取最新 S&P 500 名單
+def get_sp500_tickers():
+    try:
+        url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        table = soup.find('table', {'id': 'constituents'})
+        tickers = set() # 使用 Set 可以大幅加快比對速度 (O(1))
+        
+        for row in table.find_all('tr')[1:]:
+            ticker = row.find_all('td')[0].text.strip()
+            tickers.add(ticker)
+            # 兼容 SEC 申報格式 (例如 BRK.B 可能會寫成 BRK-B 或 BRKB)
+            tickers.add(ticker.replace('.', '-'))
+            tickers.add(ticker.replace('.', ''))
+        return tickers
+    except Exception as e:
+        print(f"📡 獲取 S&P 500 名單失敗: {e}")
+        return set()
+
+# 在每次啟動時，先去抓最新的 500 家名單！
+SP500_TICKERS = get_sp500_tickers()
 
 def send_test_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -24,9 +45,11 @@ def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message})
 
+# 🌟 智慧打卡系統：每 3 小時回報一次
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute < 5:
-    send_test_telegram(f"✅ 報告 PM：V14 真金白銀過濾器運作中！(UTC {now_utc.strftime('%H:%M')})")
+    sp_count = len(SP500_TICKERS)
+    send_test_telegram(f"✅ 報告 PM：V15 全自動 S&P 500 雷達運作中！(已載入 {sp_count} 檔成分股) (UTC {now_utc.strftime('%H:%M')})")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
@@ -59,8 +82,8 @@ for entry in entries:
             ticker_tag = xml_soup.find('issuerTradingSymbol')
             ticker = ticker_tag.text if ticker_tag else "N/A"
             
-            # 🌟 S&P 500 過濾器
-            if STRICT_WATCHLIST and ticker not in WATCHLIST_TICKERS:
+            # 🌟 動態 S&P 500 過濾器攔截
+            if STRICT_WATCHLIST and SP500_TICKERS and (ticker not in SP500_TICKERS):
                 continue
             
             transactions = xml_soup.find_all('nonDerivativeTransaction')
@@ -73,7 +96,7 @@ for entry in entries:
                     coding_tag = txn.find('transactionCoding')
                     tx_code = coding_tag.find('transactionCode').text if coding_tag and coding_tag.find('transactionCode') else ""
                     
-                    # P = Open Market Buy, S = Open Market Sale. 如果不是這兩個，直接跳過！
+                    # 只要不是 P (買入) 或 S (賣出)，直接跳過！
                     if tx_code not in ['P', 'S']: 
                         continue
 
@@ -101,6 +124,7 @@ for entry in entries:
                 
                 msg += f"🔗 來源: {link}"
                 
+                # 只有當至少有一筆交易符合「真金白銀」且「大於 50 萬美金」時才發送
                 if is_whale:
                     send_whale_telegram(msg)
                     found_count += 1
