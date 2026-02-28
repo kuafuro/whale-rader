@@ -2,11 +2,12 @@ name: 5-Minute Whale Alert
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # 🌟 鬧鐘升級：避開 0, 5, 10 的塞車時段，改在 1, 6, 11 分起床！
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
   workflow_dispatch:
 
 jobs:
-  build:  # 🌟 修復點：這裡往右退了兩格！
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
