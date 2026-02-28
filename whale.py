@@ -3,10 +3,14 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime, timezone, timedelta
+import os  # 🌟 新增這個！用來去保險箱拿密碼
 
-BOT_TOKEN = '8552163117:AAFqWucD0oGQDKs3fzk2M9XD8xfQ-DQLUQI'
-CHAT_ID = '8382295224'
+# 🌟 資安升級：程式現在不會把密碼寫死，而是去雲端保險箱拿！
+BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 MIN_WHALE_AMOUNT = 100000 
+
+# ... (下面的程式碼完全不用動，保留原本的即可) ...
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
