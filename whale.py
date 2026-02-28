@@ -46,37 +46,6 @@ def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'})
 
-# ==========================================
-# 👇 🚨 PM 專屬：強制畫圖 QA 測試區塊 🚨 👇
-# ==========================================
-try:
-    test_ticker = 'AAPL'  
-    test_price = 175.50   
-    
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=180)
-    df = yf.download(test_ticker, start=start_date, end=end_date, progress=False)
-    
-    # 🌟 核心修復：把 Yahoo 最新的「多層次標籤」壓平！
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.droplevel(1)
-    
-    if not df.empty:
-        filename = f"{test_ticker}_test_chart.png"
-        mpf.plot(df, type='candle', style='charles', 
-                 title=f"QA Test: {test_ticker} 6-Month (Whale: ${test_price})", 
-                 hlines=dict(hlines=[test_price], colors=['r'], linestyle='--'),
-                 savefig=filename)
-        
-        test_msg = f"🎨 <b>【引擎一：畫圖功能 QA 測試】</b>\n這是一張由雲端自動生成的 AAPL K 線圖！\n圖中<b style='color:red;'>紅色虛線</b>為模擬的高管進場成本。\n✅ 看到此圖，代表 <code>yfinance</code> 完美運作！"
-        send_telegram_photo(test_msg, filename)
-        os.remove(filename) 
-except Exception as e:
-    send_whale_telegram(f"❌ 畫圖測試失敗，錯誤原因: {e}")
-# ==========================================
-# 👆 🚨 測試區塊結束 🚨 👆
-# ==========================================
-
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute < 5:
     send_test_telegram(f"✅ 報告 PM：V18 視覺化 K 線雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
@@ -158,31 +127,32 @@ for entry in entries:
                 
                 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                 
+               # ... (前面是 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>" ) ...
                 if is_whale:
                     # 🌟 核心畫圖引擎啟動！
                     try:
-                        # 往前抓 6 個月的歷史 K 線資料
                         end_date = datetime.now()
                         start_date = end_date - timedelta(days=180)
                         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
                         
+                        # 🌟 把剛剛 QA 測試成功的「壓平魔法」正式裝備上去！
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+                        
                         if not df.empty:
                             filename = f"{ticker}_chart.png"
-                            # 用 mplfinance 畫出專業 K 線圖，並用「紅色虛線」標出高管的成交價！
                             mpf.plot(df, type='candle', style='charles', 
                                      title=f"{ticker} 6-Month K-Line (Whale Price: ${target_price})", 
                                      hlines=dict(hlines=[target_price], colors=['r'], linestyle='--'),
                                      savefig=filename)
                             
-                            # 把圖跟文字一起發到 Telegram！
                             send_telegram_photo(msg, filename)
-                            os.remove(filename) # 傳完後把圖刪掉，保持機房乾淨
+                            os.remove(filename) 
                         else:
-                            # 如果抓不到 K 線資料，就只發送純文字
                             send_whale_telegram(msg)
                     except Exception as e:
                         print(f"畫圖失敗: {e}")
-                        send_whale_telegram(msg) # 畫圖失敗還是要發送警報
+                        send_whale_telegram(msg) 
                         
                     found_count += 1
                     time.sleep(1.5)
