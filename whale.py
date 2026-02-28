@@ -10,23 +10,26 @@ CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')   # 測試頻道
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') # 鯨魚頻道
 MIN_WHALE_AMOUNT = 100000 
 
-# 🔫 第一把槍：專門發送測試訊息
 def send_test_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_TEST, 'text': message})
 
-# 🔫 第二把槍：專門發送大鯨魚警報
 def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message})
 
-# 👇 開機廣播：只會發給您的私人 Telegram
-send_test_telegram("✅ 報告 PM：系統自動喚醒成功！大鯨魚雷達正在守護中！")
+# 取得現在時間 (UTC)
+now_utc = datetime.now(timezone.utc)
+
+# 🌟 智慧打卡系統：每 3 小時發一次廣播 (0點, 3點, 6點... 的前 5 分鐘內)
+# 這樣既能確認系統活著，又不會被測試訊息洗版
+if now_utc.hour % 3 == 0 and now_utc.minute < 5:
+    send_test_telegram(f"✅ 報告 PM：系統定時回報！大鯨魚雷達持續 24H 守護中！(UTC {now_utc.strftime('%H:%M')})")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
 
-now_utc = datetime.now(timezone.utc)
+# 大鯨魚過濾器依然保持「每 5 分鐘檢查一次」
 time_limit = now_utc - timedelta(minutes=5)
 
 response = requests.get(url, headers=headers)
@@ -84,7 +87,6 @@ for entry in entries:
                 msg += f"🔗 來源: {link}"
                 
                 if is_whale:
-                    # 👇 抓到大單時：只會發給大鯨魚專屬群組！
                     send_whale_telegram(msg)
                     found_count += 1
                     time.sleep(1.5)
