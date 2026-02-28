@@ -21,15 +21,21 @@ jobs:
       - name: 安裝所需套件
         run: pip install requests beautifulsoup4 lxml
         
-      - name: 執行 Form 4 大鯨魚雷達！(已完成交易)
+      - name: 引擎一：Form 4 內部高管雷達 (S&P 500)
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
         run: python whale.py
 
-      - name: 執行 Form 144 提前逃生雷達！(未來拋售意向)
+      - name: 引擎二：Form 144 提前逃生預警
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
         run: python form144.py
+
+      - name: 引擎三：機構大鱷舉牌雷達 (全市場狙擊)
+        env: 
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+        run: python institutional.py
