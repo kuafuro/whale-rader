@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build:  # 🌟 修復點：這裡往右退了兩格！
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,7 +20,7 @@ jobs:
       - name: 安裝所需套件
         run: pip install requests beautifulsoup4 lxml
         
-     - name: 執行大鯨魚雷達！
+      - name: 執行大鯨魚雷達！
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
