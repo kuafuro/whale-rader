@@ -51,8 +51,6 @@ if now_utc.hour % 3 == 0 and now_utc.minute < 5:
     sp_count = len(SP500_TICKERS)
     send_test_telegram(f"✅ 報告 PM：V15 全自動 S&P 500 雷達運作中！(已載入 {sp_count} 檔成分股) (UTC {now_utc.strftime('%H:%M')})")
 
-send_test_telegram("測試啟動")
-
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
 
