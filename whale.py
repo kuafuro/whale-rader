@@ -18,6 +18,9 @@ def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message})
 
+# 👇 請在這裡插入這行「強制測試廣播」👇
+send_test_telegram("🚨 PM 強制測試：雙頻道與保險箱系統設定完美！")
+
 # 取得現在時間 (UTC)
 now_utc = datetime.now(timezone.utc)
 
