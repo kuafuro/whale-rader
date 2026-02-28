@@ -16,6 +16,10 @@ def send_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID, 'text': message})
 
+# 👇 加入這兩行，強迫程式印出 Telegram 的真實回應 👇
+    print(f"📡 呼叫 Telegram 狀態碼: {response.status_code}")
+    print(f"📡 Telegram 回傳訊息: {response.text}")
+
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
 
