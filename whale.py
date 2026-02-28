@@ -3,29 +3,29 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime, timezone, timedelta
-import os  # 🌟 用來去保險箱拿密碼
+import os  
 
-# 🌟 資安升級：程式現在不會把密碼寫死，而是去雲端保險箱拿！
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')   # 測試頻道
+CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') # 鯨魚頻道
 MIN_WHALE_AMOUNT = 100000 
 
-def send_telegram(message):
+# 🔫 第一把槍：專門發送測試訊息
+def send_test_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    # 👇 真正發射訊息的按鈕 (剛剛就是缺了這行)
-    response = requests.get(url, params={'chat_id': CHAT_ID, 'text': message})
-    
-    # 🌟 除錯印表機
-    print(f"📡 呼叫 Telegram 狀態碼: {response.status_code}")
-    print(f"📡 Telegram 回傳訊息: {response.text}")
+    requests.get(url, params={'chat_id': CHAT_ID_TEST, 'text': message})
 
-# 👇 系統開機廣播 (測試用，確認保險箱密碼正確)
-send_telegram("✅ 報告 PM：保險箱新密碼讀取成功！大鯨魚雷達正在守護中！")
+# 🔫 第二把槍：專門發送大鯨魚警報
+def send_whale_telegram(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message})
+
+# 👇 開機廣播：只會發給您的私人 Telegram
+send_test_telegram("✅ 報告 PM：系統自動喚醒成功！大鯨魚雷達正在守護中！")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
 
-# 🌟 核心升級：記憶體改為「過去 5 分鐘」
 now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=5)
 
@@ -42,7 +42,7 @@ for entry in entries:
     try:
         entry_time = datetime.fromisoformat(updated_str).astimezone(timezone.utc)
         if entry_time < time_limit:
-            continue # 超過 5 分鐘的老文件，直接跳過！
+            continue 
     except:
         pass
 
@@ -84,7 +84,8 @@ for entry in entries:
                 msg += f"🔗 來源: {link}"
                 
                 if is_whale:
-                    send_telegram(msg)
+                    # 👇 抓到大單時：只會發給大鯨魚專屬群組！
+                    send_whale_telegram(msg)
                     found_count += 1
                     time.sleep(1.5)
         except Exception as e:
