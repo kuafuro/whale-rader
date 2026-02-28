@@ -50,29 +50,32 @@ def send_whale_telegram(message):
 # 👇 🚨 PM 專屬：強制畫圖 QA 測試區塊 🚨 👇
 # ==========================================
 try:
-    test_ticker = 'AAPL'  # 拿蘋果來測試
-    test_price = 175.50   # 假設高管買在這個價位
+    test_ticker = 'AAPL'  
+    test_price = 175.50   
     
     end_date = datetime.now()
     start_date = end_date - timedelta(days=180)
-    # 抓取歷史股價
     df = yf.download(test_ticker, start=start_date, end=end_date, progress=False)
+    
+    # 🌟 核心修復：把 Yahoo 最新的「多層次標籤」壓平！
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(1)
     
     if not df.empty:
         filename = f"{test_ticker}_test_chart.png"
-        # 畫出帶有紅色虛線的專業 K 線圖
         mpf.plot(df, type='candle', style='charles', 
                  title=f"QA Test: {test_ticker} 6-Month (Whale: ${test_price})", 
                  hlines=dict(hlines=[test_price], colors=['r'], linestyle='--'),
                  savefig=filename)
         
-        test_msg = f"🎨 <b>【引擎一：畫圖功能 QA 測試】</b>\n這是一張由雲端自動生成的 AAPL K 線圖！\n圖中<b style='color:red;'>紅色虛線</b>為模擬的高管進場成本。\n✅ 看到此圖，代表 <code>yfinance</code> 和 <code>mplfinance</code> 完美運作！"
+        test_msg = f"🎨 <b>【引擎一：畫圖功能 QA 測試】</b>\n這是一張由雲端自動生成的 AAPL K 線圖！\n圖中<b style='color:red;'>紅色虛線</b>為模擬的高管進場成本。\n✅ 看到此圖，代表 <code>yfinance</code> 完美運作！"
         send_telegram_photo(test_msg, filename)
-        os.remove(filename) # 測試完銷毀圖片
+        os.remove(filename) 
 except Exception as e:
     send_whale_telegram(f"❌ 畫圖測試失敗，錯誤原因: {e}")
 # ==========================================
 # 👆 🚨 測試區塊結束 🚨 👆
+# ==========================================
 
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute < 5:
