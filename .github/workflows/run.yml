@@ -2,7 +2,6 @@ name: 5-Minute Whale Alert
 
 on:
   schedule:
-    # 🌟 鬧鐘升級：避開 0, 5, 10 的塞車時段，改在 1, 6, 11 分起床！
     - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
   workflow_dispatch:
 
@@ -19,9 +18,9 @@ jobs:
           python-version: '3.10'
           
       - name: 安裝所需套件
-        run: pip install requests beautifulsoup4 lxml
+        run: pip install requests beautifulsoup4 lxml google-generativeai
         
-      - name: 引擎一：Form 4 內部高管雷達 (S&P 500)
+      - name: 引擎一：Form 4 內部高管雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
@@ -34,7 +33,7 @@ jobs:
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
         run: python form144.py
 
-      - name: 引擎三：機構大鱷舉牌雷達 (全市場狙擊)
+      - name: 引擎三：機構大鱷舉牌雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
