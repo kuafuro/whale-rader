@@ -17,14 +17,16 @@ jobs:
         with:
           python-version: '3.10'
           
-      - name: 安裝所需套件
-        run: pip install requests beautifulsoup4 lxml google-generativeai yfinance mplfinance pandas
+      - name: 安裝所需套件 (🌟 加入了 gspread 與 google-auth)
+        run: pip install requests beautifulsoup4 lxml google-generativeai yfinance mplfinance pandas gspread google-auth
         
       - name: 引擎一：Form 4 內部高管雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python whale.py
 
       - name: 引擎二：Form 144 提前逃生預警
