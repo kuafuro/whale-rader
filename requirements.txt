@@ -1,0 +1,9 @@
+requests
+beautifulsoup4
+lxml
+google-generativeai
+yfinance
+mplfinance
+pandas
+gspread
+google-auth
