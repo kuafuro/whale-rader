@@ -7,7 +7,7 @@ import os
 import yfinance as yf
 import mplfinance as mpf
 import pandas as pd
-import gspread # 🌟 Google Sheets 套件
+import gspread 
 from google.oauth2.service_account import Credentials
 import json
 
@@ -18,7 +18,6 @@ CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE')
 MIN_WHALE_AMOUNT = 500000  
 STRICT_WATCHLIST = True    
 
-# 🌟 初始化 Google Sheets 連線
 GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
 SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
 worksheet = None
@@ -30,7 +29,7 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         gc = gspread.authorize(creds)
         sh = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.sheet1 # 預設寫入第一個分頁
+        worksheet = sh.sheet1 
         print("✅ Google Sheets 連線成功！")
     except Exception as e:
         print(f"❌ Google Sheets 初始化失敗: {e}")
@@ -66,13 +65,13 @@ def send_whale_telegram(message):
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'})
 
 now_utc = datetime.now(timezone.utc)
-# 🌟 修復心跳延遲：給予機房排隊與安裝重裝備的緩衝時間
-# 將視窗放寬到 12 分鐘內 (註：您可能會在整點收到 1~2 則回報，但保證絕對不再失聯！)
 if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
-    send_test_telegram(f"✅ 報告 PM：V19 大數據雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
+    send_test_telegram(f"✅ 報告將軍：V20 終極防禦雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
+
+# 🌟 V20 修復 2：時間窗擴大至 15 分鐘，防堵機房延遲
 time_limit = now_utc - timedelta(minutes=15)
 
 response = requests.get(url, headers=headers)
@@ -86,7 +85,7 @@ for entry in entries:
     updated_str = entry.updated.text
     
     try:
-        # 強制轉換 Zulu Time 並在超時後直接下達 break 全軍撤退！
+        # 🌟 V20 修復 3 & 5：強轉 Z 時區，並在過期時使用 break 全軍撤退！
         if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
             break 
     except Exception as e:
@@ -113,11 +112,6 @@ for entry in entries:
                 msg = f"🐳 <b>【頂級大鯨魚警報】</b>\n🏢 {issuer_name} (${ticker})\n👤 {reporter_name}\n"
                 is_whale = False 
                 target_price = 0 
-                
-                # 🌟 用來寫入表格的資料變數
-                db_action = ""
-                db_shares = 0
-                db_value = 0
                 
                 for txn in transactions:
                     coding_tag = txn.find('transactionCoding')
@@ -154,24 +148,19 @@ for entry in entries:
                     if total_value >= MIN_WHALE_AMOUNT:
                         is_whale = True
                         msg += f"👉 {action}: {shares:,.0f} 股\n💰 總額: ${total_value:,.0f} (@${price}){intent_label}\n"
-                        # 記錄最後一筆大額交易準備寫入 DB
-                        db_action = action
-                        db_shares = shares
-                        db_value = total_value
+                        
+                        # 🌟 V20 修復 4：立即寫入資料庫，抓一筆記一筆，絕不覆蓋遺失！
+                        if worksheet:
+                            try:
+                                time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
+                                row_data = [time_str, ticker, issuer_name, action, shares, total_value, link]
+                                worksheet.append_row(row_data)
+                            except Exception as e:
+                                print(f"寫入 Google 表格失敗: {e}")
                 
                 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                 
                 if is_whale:
-                    # 🌟 寫入 Google Sheets 資料庫！
-                    if worksheet:
-                        try:
-                            time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S') # 台灣時間
-                            # 寫入格式：時間 | 股票代碼 | 公司名稱 | 買/賣 | 股數 | 總金額 | SEC網址
-                            row_data = [time_str, ticker, issuer_name, db_action, db_shares, db_value, link]
-                            worksheet.append_row(row_data)
-                        except Exception as e:
-                            print(f"寫入 Google 表格失敗: {e}")
-
                     # 🌟 核心畫圖引擎啟動！
                     try:
                         end_date = datetime.now()
