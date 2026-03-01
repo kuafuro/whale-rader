@@ -46,9 +46,13 @@ for entry in entries:
     link = entry.link['href']
     updated_str = entry.updated.text
     
-    try:
-        if datetime.fromisoformat(updated_str).astimezone(timezone.utc) < time_limit: continue 
-    except: pass
+   try:
+        # 強制轉換 Zulu Time 並在超時後直接下達 break 全軍撤退！
+        if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
+            break 
+    except Exception as e:
+        print(f"時間解析失敗: {e}")
+        pass
 
     txt_link = link.replace('-index.htm', '.txt')
     txt_response = requests.get(txt_link, headers=headers)
