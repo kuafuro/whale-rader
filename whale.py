@@ -9,6 +9,7 @@ import pandas as pd
 import gspread 
 from google.oauth2.service_account import Credentials
 import json
+import html # 🌟 防止 HTML 解析報錯
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')   
@@ -21,11 +22,9 @@ GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
 SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
 worksheet = None
 
-# 🌟 新增：用來存放已處理過連結的記憶體
 processed_links = set()
 CACHE_FILE = 'processed_links.txt'
 
-# 如果本地有暫存檔，先讀取進來 (適合本地測試或後續搭配 Cache 使用)
 if os.path.exists(CACHE_FILE):
     with open(CACHE_FILE, 'r') as f:
         processed_links.update(f.read().splitlines())
@@ -40,15 +39,11 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         worksheet = sh.sheet1 
         print("✅ Google Sheets 連線成功！")
         
-        # 🌟 新增：從 Google Sheets 抓取歷史記錄來去重
-        # 假設連結存在第 7 欄 (G欄)，抓取最近的 200 筆資料比對即可，避免消耗太多 API 額度
         try:
             sheet_links = worksheet.col_values(7)[-200:]
             processed_links.update(sheet_links)
-            print(f"已載入 {len(sheet_links)} 筆歷史紀錄進行比對。")
         except Exception as e:
             print(f"⚠️ 讀取 Google Sheets 歷史紀錄失敗: {e}")
-            
     except Exception as e:
         print(f"❌ Google Sheets 初始化失敗: {e}")
 
@@ -104,7 +99,6 @@ try:
         link = entry.link['href']
         updated_str = entry.updated.text
         
-        # 🌟 新增：查水表！如果這個連結已經處理過，直接跳過
         if link in processed_links:
             continue
         
@@ -112,12 +106,10 @@ try:
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
                 break 
         except Exception as e:
-            print(f"時間解析失敗，跳過此筆 ({updated_str}): {e}")
             continue 
 
         txt_link = link.replace('-index.htm', '.txt')
-        
-        time.sleep(0.15) # SEC Rate Limit
+        time.sleep(0.15) 
         
         txt_response = requests.get(txt_link, headers=headers)
         
@@ -126,6 +118,10 @@ try:
             try:
                 issuer_name = xml_soup.find('issuerName').text if xml_soup.find('issuerName') else "未知公司"
                 reporter_name = xml_soup.find('rptOwnerName').text if xml_soup.find('rptOwnerName') else "未知高管"
+                
+                # 🌟 清洗特殊符號 (防止 & 搞壞 Telegram)
+                issuer_name = html.escape(issuer_name)
+                reporter_name = html.escape(reporter_name)
                 
                 ticker_tag = xml_soup.find('issuerTradingSymbol')
                 ticker = ticker_tag.text if ticker_tag else "N/A"
@@ -184,12 +180,11 @@ try:
                                     row_data = [time_str, ticker, issuer_name, action, shares, total_value, link]
                                     worksheet.append_row(row_data)
                                 except Exception as e:
-                                    print(f"寫入 Google 表格失敗: {e}")
+                                    pass
                     
                     msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                     
                     if is_whale:
-                        # 🌟 新增：只要確立是大鯨魚，就把連結寫入本地與記憶體，避免下次迴圈重複報警
                         processed_links.add(link)
                         with open(CACHE_FILE, 'a') as f:
                             f.write(link + '\n')
@@ -205,15 +200,13 @@ try:
                             
                             if not df.empty:
                                 mpf.plot(df, type='candle', style='charles', 
-                                         title=f"{ticker} 6-Month K-Line (Whale Price: ${target_price})", 
+                                         title=f"{ticker} 6-Month K-Line", 
                                          hlines=dict(hlines=[target_price], colors=['r'], linestyle='--'),
                                          savefig=filename)
-                                
                                 send_telegram_photo(msg, filename)
                             else:
                                 send_whale_telegram(msg)
                         except Exception as e:
-                            print(f"畫圖或推播失敗: {e}")
                             send_whale_telegram(msg) 
                         finally:
                             if os.path.exists(filename):
@@ -222,7 +215,7 @@ try:
                         found_count += 1
                         time.sleep(1.5)
             except Exception as e:
-                print(f"解析此份申報內部資料時發生錯誤: {e}")
+                pass
                 
         if found_count >= 3:
             break
