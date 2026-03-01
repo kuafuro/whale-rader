@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 順手幫你升級到 v4 最新版
         
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 順手幫你升級到 v5 最新版
         with:
           python-version: '3.10'
           
@@ -28,22 +28,35 @@ jobs:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python whale.py
+        continue-on-error: true # 🛡️ 加入防禦機制：就算這個引擎當機，也不會阻止後面的引擎執行
 
       - name: 引擎二：Form 144 提前逃生預警
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          # 🌟 補上 Google Sheets 金鑰
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python form144.py
+        continue-on-error: true
 
       - name: 引擎三：機構大鱷舉牌雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          # 🌟 補上 Google Sheets 金鑰
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python institutional.py
+        continue-on-error: true
 
       - name: 引擎四：AI 8-K 財報秒讀機
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 🌟 補上 Google Sheets 金鑰
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python ai_analyst.py
+        continue-on-error: true
