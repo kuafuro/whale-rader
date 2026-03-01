@@ -28,9 +28,13 @@ entries = soup.find_all('entry')
 for entry in entries:
     updated_str = entry.updated.text
     
-    try:
-        if datetime.fromisoformat(updated_str).astimezone(timezone.utc) < time_limit: continue 
-    except: pass
+try:
+        # 強制轉換 Zulu Time 並在超時後直接下達 break 全軍撤退！
+        if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
+            break 
+    except Exception as e:
+        print(f"時間解析失敗: {e}")
+        pass
 
     # 取得文件類型
     category = entry.category['term'] if entry.category else ""
