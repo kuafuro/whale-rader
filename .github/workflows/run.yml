@@ -16,10 +16,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # 🌟 加入快取，省下每次下載套件的時間！
+          cache: 'pip' # 🌟 快取機制啟動！它現在會去認 requirements.txt 了
           
       - name: 安裝所需套件
-        run: pip install requests beautifulsoup4 lxml google-generativeai yfinance mplfinance pandas gspread google-auth
+        run: pip install -r requirements.txt # 🌟 改為讀取清單檔案安裝
         
       - name: 引擎一：Form 4 內部高管雷達
         env: 
