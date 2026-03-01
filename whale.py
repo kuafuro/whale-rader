@@ -6,9 +6,7 @@ import os
 import yfinance as yf
 import mplfinance as mpf
 import pandas as pd
-import gspread 
-from google.oauth2.service_account import Credentials
-import json
+from supabase import create_client, Client
 import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -18,9 +16,10 @@ CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE')
 MIN_WHALE_AMOUNT = 500000  
 STRICT_WATCHLIST = True    
 
-GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
-SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
-worksheet = None
+# 🌟 初始化 Supabase
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+supabase: Client = None
 
 processed_links = set()
 CACHE_FILE = 'processed_links.txt'
@@ -29,27 +28,22 @@ if os.path.exists(CACHE_FILE):
     with open(CACHE_FILE, 'r') as f:
         processed_links.update(f.read().splitlines())
 
-if GCP_CREDENTIALS and SPREADSHEET_ID:
+if SUPABASE_URL and SUPABASE_KEY:
     try:
-        creds_dict = json.loads(GCP_CREDENTIALS)
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        gc = gspread.authorize(creds)
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.sheet1 
-        try:
-            sheet_links = worksheet.col_values(7)[-200:]
-            processed_links.update(sheet_links)
-        except Exception:
-            pass
-    except Exception:
-        pass
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("✅ Supabase 連線成功！")
+        # 🌟 極速抓取最近 500 筆歷史網址，建立去重防線
+        response = supabase.table('whale_alerts').select('link').order('created_at', desc=True).limit(500).execute()
+        db_links = [row['link'] for row in response.data]
+        processed_links.update(db_links)
+    except Exception as e:
+        print(f"❌ Supabase 初始化失敗: {e}")
 
 def get_sp500_tickers():
     try:
         url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10) # 🌟 加入 Timeout
+        response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         tickers = set()
         for row in soup.find('table', {'id': 'constituents'}).find_all('tr')[1:]:
@@ -78,11 +72,10 @@ def send_whale_telegram(message):
 
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
-    send_test_telegram(f"✅ 報告將軍：V20 終極防禦雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
+    send_test_telegram(f"✅ 報告將軍：V20 終極防禦雷達運作中！(Supabase 模式啟動)")
 
 headers = {'User-Agent': 'WhaleRadarBot/2.0 (mingcheng@kuafuorhk.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
-
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
@@ -174,13 +167,19 @@ try:
                             total_whale_value += total_value
                             msg += f"👉 {action}: {shares:,.0f} 股\n💰 總額: ${total_value:,.0f} (@${price}){intent_label}\n"
                             
-                            if worksheet:
+                            # 🌟 寫入 Supabase 資料庫
+                            if supabase:
                                 try:
-                                    time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
-                                    row_data = [time_str, ticker, issuer_name, action, shares, total_value, link]
-                                    worksheet.append_row(row_data)
-                                except Exception:
-                                    pass
+                                    supabase.table('whale_alerts').insert({
+                                        "ticker": ticker,
+                                        "company_name": issuer_name,
+                                        "alert_type": action,
+                                        "actor": reporter_name,
+                                        "amount": total_value,
+                                        "link": link
+                                    }).execute()
+                                except Exception as e:
+                                    print(f"Supabase 寫入失敗: {e}")
                     
                     msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                     
