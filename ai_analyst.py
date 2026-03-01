@@ -4,18 +4,17 @@ import time
 from datetime import datetime, timezone, timedelta
 import os
 import google.generativeai as genai
-import gspread 
-from google.oauth2.service_account import Credentials
-import json
+from supabase import create_client, Client
 import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
-GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
-SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
-worksheet = None
+# 🌟 初始化 Supabase
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+supabase: Client = None
 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
@@ -27,19 +26,12 @@ if os.path.exists(CACHE_FILE):
     with open(CACHE_FILE, 'r') as f:
         processed_links.update(f.read().splitlines())
 
-if GCP_CREDENTIALS and SPREADSHEET_ID:
+if SUPABASE_URL and SUPABASE_KEY:
     try:
-        creds_dict = json.loads(GCP_CREDENTIALS)
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        gc = gspread.authorize(creds)
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.sheet1 
-        try:
-            sheet_links = worksheet.col_values(7)[-200:]
-            processed_links.update(sheet_links)
-        except Exception:
-            pass
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        response = supabase.table('whale_alerts').select('link').order('created_at', desc=True).limit(500).execute()
+        db_links = [row['link'] for row in response.data]
+        processed_links.update(db_links)
     except Exception:
         pass
 
@@ -63,7 +55,7 @@ try:
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
 
-    found_count = 0 # 🌟 防洪閘門啟動 (AI 額度保護)
+    found_count = 0
 
     for entry in entries:
         link = entry.link['href']
@@ -98,7 +90,7 @@ try:
             【🚀 強烈看多 / 🟢 偏多 / ⚪ 中立 / 🔴 偏空 / 💀 強烈看空】。
             
             注意：請直接輸出純文字，絕對不要使用任何 Markdown 語法或 HTML 標籤（如 **粗體** 或 <b> 標籤），這會導致系統崩潰。
-            """ # 🌟 修正：嚴禁 AI 亂加標籤，由程式碼來加
+            """ 
             
             ai_summary = ""
             max_retries = 3
@@ -126,11 +118,17 @@ try:
             
             send_whale_telegram(msg)
             
-            if worksheet:
+            # 🌟 寫入 Supabase 資料庫 (金額傳入 None)
+            if supabase:
                 try:
-                    time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
-                    row_data = [time_str, "N/A", title, "📑 重大突發 (8-K)", "🤖 AI 分析", "N/A", link]
-                    worksheet.append_row(row_data)
+                    supabase.table('whale_alerts').insert({
+                        "ticker": "N/A",
+                        "company_name": title,
+                        "alert_type": "📑 重大突發 (8-K)",
+                        "actor": "🤖 AI 分析",
+                        "amount": None, 
+                        "link": link
+                    }).execute()
                 except Exception:
                     pass
 
@@ -141,7 +139,7 @@ try:
             found_count += 1
             time.sleep(5) 
             
-        if found_count >= 3: # 🌟 限制每次最多讀 3 份，保護 Gemini 免費額度
+        if found_count >= 3: 
             break
 
 except Exception as e:
