@@ -9,7 +9,7 @@ import pandas as pd
 import gspread 
 from google.oauth2.service_account import Credentials
 import json
-import html # 🌟 防止 HTML 解析報錯
+import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')   
@@ -37,21 +37,19 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         gc = gspread.authorize(creds)
         sh = gc.open_by_key(SPREADSHEET_ID)
         worksheet = sh.sheet1 
-        print("✅ Google Sheets 連線成功！")
-        
         try:
             sheet_links = worksheet.col_values(7)[-200:]
             processed_links.update(sheet_links)
-        except Exception as e:
-            print(f"⚠️ 讀取 Google Sheets 歷史紀錄失敗: {e}")
-    except Exception as e:
-        print(f"❌ Google Sheets 初始化失敗: {e}")
+        except Exception:
+            pass
+    except Exception:
+        pass
 
 def get_sp500_tickers():
     try:
         url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10) # 🌟 加入 Timeout
         soup = BeautifulSoup(response.text, 'html.parser')
         tickers = set()
         for row in soup.find('table', {'id': 'constituents'}).find_all('tr')[1:]:
@@ -65,18 +63,18 @@ SP500_TICKERS = get_sp500_tickers()
 
 def send_test_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={'chat_id': CHAT_ID_TEST, 'text': message})
+    requests.post(url, data={'chat_id': CHAT_ID_TEST, 'text': message}, timeout=10)
 
 def send_telegram_photo(caption, photo_path):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     with open(photo_path, 'rb') as photo:
         payload = {'chat_id': CHAT_ID_WHALE, 'caption': caption, 'parse_mode': 'HTML'}
-        requests.post(url, data=payload, files={'photo': photo})
+        requests.post(url, data=payload, files={'photo': photo}, timeout=15)
         
 def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'}
-    requests.post(url, data=payload)
+    requests.post(url, data=payload, timeout=10)
 
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
@@ -88,7 +86,7 @@ url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=o
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
@@ -105,21 +103,23 @@ try:
         try:
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
                 break 
-        except Exception as e:
+        except Exception:
             continue 
 
         txt_link = link.replace('-index.htm', '.txt')
         time.sleep(0.15) 
         
-        txt_response = requests.get(txt_link, headers=headers)
-        
+        try:
+            txt_response = requests.get(txt_link, headers=headers, timeout=10)
+        except:
+            continue
+            
         if txt_response.status_code == 200:
             xml_soup = BeautifulSoup(txt_response.content, 'xml')
             try:
                 issuer_name = xml_soup.find('issuerName').text if xml_soup.find('issuerName') else "未知公司"
                 reporter_name = xml_soup.find('rptOwnerName').text if xml_soup.find('rptOwnerName') else "未知高管"
                 
-                # 🌟 清洗特殊符號 (防止 & 搞壞 Telegram)
                 issuer_name = html.escape(issuer_name)
                 reporter_name = html.escape(reporter_name)
                 
@@ -179,7 +179,7 @@ try:
                                     time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
                                     row_data = [time_str, ticker, issuer_name, action, shares, total_value, link]
                                     worksheet.append_row(row_data)
-                                except Exception as e:
+                                except Exception:
                                     pass
                     
                     msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
@@ -206,7 +206,7 @@ try:
                                 send_telegram_photo(msg, filename)
                             else:
                                 send_whale_telegram(msg)
-                        except Exception as e:
+                        except Exception:
                             send_whale_telegram(msg) 
                         finally:
                             if os.path.exists(filename):
@@ -214,7 +214,7 @@ try:
                             
                         found_count += 1
                         time.sleep(1.5)
-            except Exception as e:
+            except Exception:
                 pass
                 
         if found_count >= 3:
