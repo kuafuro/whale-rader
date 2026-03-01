@@ -73,7 +73,7 @@ if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
-time_limit = now_utc - timedelta(minutes=5)
+time_limit = now_utc - timedelta(minutes=15)
 
 response = requests.get(url, headers=headers)
 soup = BeautifulSoup(response.content, 'xml')
