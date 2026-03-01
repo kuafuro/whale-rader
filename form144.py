@@ -6,7 +6,7 @@ import os
 import gspread 
 from google.oauth2.service_account import Credentials
 import json
-import html # 🌟 防止 HTML 解析報錯
+import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
@@ -36,16 +36,16 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         try:
             sheet_links = worksheet.col_values(7)[-200:]
             processed_links.update(sheet_links)
-        except Exception as e:
+        except Exception:
             pass
-    except Exception as e:
+    except Exception:
         pass
 
 def get_sp500_tickers():
     try:
         url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
         headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         tickers = set()
         for row in soup.find('table', {'id': 'constituents'}).find_all('tr')[1:]:
@@ -61,8 +61,8 @@ def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'}
     try:
-        requests.post(url, data=payload)
-    except Exception as e:
+        requests.post(url, data=payload, timeout=10)
+    except Exception:
         pass
 
 headers = {'User-Agent': 'Form144RadarBot/2.0 (mingcheng@kuafuorhk.com)'}
@@ -72,10 +72,12 @@ now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
+
+    found_count = 0 # 🌟 防洪閘門啟動
 
     for entry in entries:
         link = entry.link['href']
@@ -87,14 +89,17 @@ try:
         try:
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
                 break 
-        except Exception as e:
+        except Exception:
             continue
 
         txt_link = link.replace('-index.htm', '.txt')
         time.sleep(0.15)
         
-        txt_response = requests.get(txt_link, headers=headers)
-        
+        try:
+            txt_response = requests.get(txt_link, headers=headers, timeout=10)
+        except:
+            continue
+            
         if txt_response.status_code == 200:
             xml_soup = BeautifulSoup(txt_response.content, 'xml')
             try:
@@ -104,7 +109,6 @@ try:
                 seller_tag = xml_soup.find('nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold')
                 seller_name = seller_tag.text if seller_tag else "未知高管/大股東"
                 
-                # 🌟 清洗特殊符號
                 issuer_name = html.escape(issuer_name)
                 seller_name = html.escape(seller_name)
                 
@@ -138,17 +142,21 @@ try:
                             time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
                             row_data = [time_str, ticker, issuer_name, "🔴 準備拋售 (Form 144)", seller_name, market_value, link]
                             worksheet.append_row(row_data)
-                        except Exception as e:
+                        except Exception:
                             pass
 
                     processed_links.add(link)
                     with open(CACHE_FILE, 'a') as f:
                         f.write(link + '\n')
 
+                    found_count += 1
                     time.sleep(1.5)
                     
-            except Exception as e:
+            except Exception:
                 pass
+                
+        if found_count >= 5: # 🌟 避免 API 封鎖
+            break
 
 except Exception as e:
     print(f"Form 144 雷達發生錯誤: {e}")
