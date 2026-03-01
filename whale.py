@@ -66,7 +66,9 @@ def send_whale_telegram(message):
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'})
 
 now_utc = datetime.now(timezone.utc)
-if now_utc.hour % 3 == 0 and now_utc.minute < 5:
+# 🌟 修復心跳延遲：給予機房排隊與安裝重裝備的緩衝時間
+# 將視窗放寬到 12 分鐘內 (註：您可能會在整點收到 1~2 則回報，但保證絕對不再失聯！)
+if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
     send_test_telegram(f"✅ 報告 PM：V19 大數據雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
