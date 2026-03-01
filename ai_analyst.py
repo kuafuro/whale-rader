@@ -7,7 +7,7 @@ import google.generativeai as genai
 import gspread 
 from google.oauth2.service_account import Credentials
 import json
-import html # 🌟 防止 HTML 解析報錯
+import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE')
@@ -38,17 +38,17 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         try:
             sheet_links = worksheet.col_values(7)[-200:]
             processed_links.update(sheet_links)
-        except Exception as e:
+        except Exception:
             pass
-    except Exception as e:
+    except Exception:
         pass
 
 def send_whale_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'}
     try:
-        requests.post(url, data=payload)
-    except Exception as e:
+        requests.post(url, data=payload, timeout=10)
+    except Exception:
         pass
 
 headers = {'User-Agent': 'WhaleRadarBot/2.0 (mingcheng@kuafuorhk.com)'}
@@ -58,10 +58,12 @@ now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
+
+    found_count = 0 # 🌟 防洪閘門啟動 (AI 額度保護)
 
     for entry in entries:
         link = entry.link['href']
@@ -74,14 +76,18 @@ try:
         try:
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
                 break 
-        except Exception as e:
+        except Exception:
             continue 
 
         time.sleep(0.15)
         
         txt_link = link.replace('-index.htm', '.txt')
-        txt_response = requests.get(txt_link, headers=headers)
         
+        try:
+            txt_response = requests.get(txt_link, headers=headers, timeout=10)
+        except:
+            continue
+            
         if txt_response.status_code == 200:
             content = txt_response.text[:8000]
             
@@ -91,18 +97,14 @@ try:
             最後，請根據這個事件對公司股價的潛在影響，給出一個明確的情緒判定標籤：
             【🚀 強烈看多 / 🟢 偏多 / ⚪ 中立 / 🔴 偏空 / 💀 強烈看空】。
             
-            注意：請直接輸出純文字，若要強調重點請使用 <b> </b> 標籤，絕對不要使用 Markdown 語法。
-
-            報告標題：{title}
-            報告內容：
-            {content}
-            """
+            注意：請直接輸出純文字，絕對不要使用任何 Markdown 語法或 HTML 標籤（如 **粗體** 或 <b> 標籤），這會導致系統崩潰。
+            """ # 🌟 修正：嚴禁 AI 亂加標籤，由程式碼來加
             
             ai_summary = ""
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    ai_response = model.generate_content(prompt)
+                    ai_response = model.generate_content(prompt + f"\n報告標題：{title}\n報告內容：\n{content}")
                     ai_summary = ai_response.text.strip()
                     break 
                 except Exception as api_e:
@@ -114,7 +116,6 @@ try:
             if not ai_summary:
                 continue
                 
-            # 🌟 清洗特殊符號
             title_escaped = html.escape(title)
             ai_summary_escaped = html.escape(ai_summary)
             
@@ -130,14 +131,18 @@ try:
                     time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
                     row_data = [time_str, "N/A", title, "📑 重大突發 (8-K)", "🤖 AI 分析", "N/A", link]
                     worksheet.append_row(row_data)
-                except Exception as e:
+                except Exception:
                     pass
 
             processed_links.add(link)
             with open(CACHE_FILE, 'a') as f:
                 f.write(link + '\n')
             
+            found_count += 1
             time.sleep(5) 
+            
+        if found_count >= 3: # 🌟 限制每次最多讀 3 份，保護 Gemini 免費額度
+            break
 
 except Exception as e:
     print(f"AI 8-K 雷達發生錯誤: {e}")
