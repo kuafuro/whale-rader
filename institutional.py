@@ -7,7 +7,7 @@ import re
 import gspread 
 from google.oauth2.service_account import Credentials
 import json
-import html # 🌟 防止 HTML 解析報錯
+import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
@@ -34,21 +34,17 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         try:
             sheet_links = worksheet.col_values(7)[-200:]
             processed_links.update(sheet_links)
-        except Exception as e:
+        except Exception:
             pass
-    except Exception as e:
+    except Exception:
         pass
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        'chat_id': CHAT_ID_WHALE,
-        'text': message,
-        'parse_mode': 'HTML'
-    }
+    payload = {'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'}
     try:
-        requests.post(url, data=payload)
-    except Exception as e:
+        requests.post(url, data=payload, timeout=10)
+    except Exception:
         pass
 
 headers = {'User-Agent': 'WhaleRadarBot/2.0 (mingcheng@kuafuorhk.com)'}
@@ -58,7 +54,7 @@ now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status() 
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
@@ -76,7 +72,7 @@ try:
             entry_time = datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc)
             if entry_time < time_limit: 
                 break 
-        except Exception as e:
+        except Exception:
             continue 
             
         category = entry.category['term'] if entry.category else ""
@@ -85,7 +81,11 @@ try:
             txt_link = link.replace('-index.htm', '.txt')
             time.sleep(0.15) 
             
-            txt_response = requests.get(txt_link, headers=headers)
+            try:
+                txt_response = requests.get(txt_link, headers=headers, timeout=10)
+            except:
+                continue
+                
             if txt_response.status_code == 200:
                 txt_content = txt_response.text
                 
@@ -95,7 +95,6 @@ try:
                 subject_name = subject_match.group(1).strip() if subject_match else "未知目標公司"
                 filer_name = filer_match.group(1).strip() if filer_match else "未知投資機構"
                 
-                # 🌟 清洗特殊符號
                 subject_name = html.escape(subject_name)
                 filer_name = html.escape(filer_name)
                 
@@ -116,7 +115,7 @@ try:
                         time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
                         row_data = [time_str, "N/A", subject_name, category, filer_name, "N/A", link]
                         worksheet.append_row(row_data)
-                    except Exception as e:
+                    except Exception:
                         pass
                 
                 processed_links.add(link)
