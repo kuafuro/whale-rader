@@ -7,6 +7,9 @@ import os
 import yfinance as yf
 import mplfinance as mpf
 import pandas as pd
+import gspread # 🌟 Google Sheets 套件
+from google.oauth2.service_account import Credentials
+import json
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_TEST = os.environ.get('TELEGRAM_CHAT_ID_TEST')   
@@ -14,6 +17,23 @@ CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE')
 
 MIN_WHALE_AMOUNT = 500000  
 STRICT_WATCHLIST = True    
+
+# 🌟 初始化 Google Sheets 連線
+GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
+SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
+worksheet = None
+
+if GCP_CREDENTIALS and SPREADSHEET_ID:
+    try:
+        creds_dict = json.loads(GCP_CREDENTIALS)
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sh.sheet1 # 預設寫入第一個分頁
+        print("✅ Google Sheets 連線成功！")
+    except Exception as e:
+        print(f"❌ Google Sheets 初始化失敗: {e}")
 
 def get_sp500_tickers():
     try:
@@ -35,7 +55,6 @@ def send_test_telegram(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.get(url, params={'chat_id': CHAT_ID_TEST, 'text': message})
 
-# 🌟 新增：傳送圖片專用廣播器
 def send_telegram_photo(caption, photo_path):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     with open(photo_path, 'rb') as photo:
@@ -48,7 +67,7 @@ def send_whale_telegram(message):
 
 now_utc = datetime.now(timezone.utc)
 if now_utc.hour % 3 == 0 and now_utc.minute < 5:
-    send_test_telegram(f"✅ 報告 PM：V18 視覺化 K 線雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
+    send_test_telegram(f"✅ 報告 PM：V19 大數據雷達運作中！(UTC {now_utc.strftime('%H:%M')})")
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
@@ -87,7 +106,12 @@ for entry in entries:
             if transactions:
                 msg = f"🐳 <b>【頂級大鯨魚警報】</b>\n🏢 {issuer_name} (${ticker})\n👤 {reporter_name}\n"
                 is_whale = False 
-                target_price = 0 # 記錄畫圖用的價格
+                target_price = 0 
+                
+                # 🌟 用來寫入表格的資料變數
+                db_action = ""
+                db_shares = 0
+                db_value = 0
                 
                 for txn in transactions:
                     coding_tag = txn.find('transactionCoding')
@@ -108,7 +132,7 @@ for entry in entries:
                         price = float(price_str)
                         post_shares = float(post_shares_str)
                         total_value = shares * price
-                        target_price = price # 把交易價格存下來給 AI 畫圖用
+                        target_price = price 
                     except:
                         total_value = 0
                         post_shares = -1
@@ -124,18 +148,30 @@ for entry in entries:
                     if total_value >= MIN_WHALE_AMOUNT:
                         is_whale = True
                         msg += f"👉 {action}: {shares:,.0f} 股\n💰 總額: ${total_value:,.0f} (@${price}){intent_label}\n"
+                        # 記錄最後一筆大額交易準備寫入 DB
+                        db_action = action
+                        db_shares = shares
+                        db_value = total_value
                 
                 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                 
-               # ... (前面是 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>" ) ...
                 if is_whale:
+                    # 🌟 寫入 Google Sheets 資料庫！
+                    if worksheet:
+                        try:
+                            time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S') # 台灣時間
+                            # 寫入格式：時間 | 股票代碼 | 公司名稱 | 買/賣 | 股數 | 總金額 | SEC網址
+                            row_data = [time_str, ticker, issuer_name, db_action, db_shares, db_value, link]
+                            worksheet.append_row(row_data)
+                        except Exception as e:
+                            print(f"寫入 Google 表格失敗: {e}")
+
                     # 🌟 核心畫圖引擎啟動！
                     try:
                         end_date = datetime.now()
                         start_date = end_date - timedelta(days=180)
                         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
                         
-                        # 🌟 把剛剛 QA 測試成功的「壓平魔法」正式裝備上去！
                         if isinstance(df.columns, pd.MultiIndex):
                             df.columns = df.columns.droplevel(1)
                         
