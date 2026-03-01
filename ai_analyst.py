@@ -23,7 +23,7 @@ headers = {'User-Agent': 'AI_Analyst (pm_agent@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&owner=include&count=20&output=atom'
 
 now_utc = datetime.now(timezone.utc)
-time_limit = now_utc - timedelta(minutes=5)
+time_limit = now_utc - timedelta(minutes=15)
 
 response = requests.get(url, headers=headers)
 soup = BeautifulSoup(response.content, 'xml')
