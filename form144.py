@@ -36,7 +36,7 @@ headers = {'User-Agent': 'Form144Radar (pm_agent@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=144&owner=include&count=40&output=atom'
 
 now_utc = datetime.now(timezone.utc)
-time_limit = now_utc - timedelta(minutes=5)
+time_limit = now_utc - timedelta(minutes=15)
 
 response = requests.get(url, headers=headers)
 soup = BeautifulSoup(response.content, 'xml')
