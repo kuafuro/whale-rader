@@ -4,17 +4,16 @@ import time
 from datetime import datetime, timezone, timedelta
 import os
 import re
-import gspread 
-from google.oauth2.service_account import Credentials
-import json
+from supabase import create_client, Client
 import html
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
 
-GCP_CREDENTIALS = os.environ.get('GCP_CREDENTIALS')
-SPREADSHEET_ID = os.environ.get('SPREADSHEET_ID')
-worksheet = None
+# 🌟 初始化 Supabase
+SUPABASE_URL = os.environ.get('SUPABASE_URL')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+supabase: Client = None
 
 processed_links = set()
 CACHE_FILE = 'processed_links_institutional.txt'
@@ -23,19 +22,12 @@ if os.path.exists(CACHE_FILE):
     with open(CACHE_FILE, 'r') as f:
         processed_links.update(f.read().splitlines())
 
-if GCP_CREDENTIALS and SPREADSHEET_ID:
+if SUPABASE_URL and SUPABASE_KEY:
     try:
-        creds_dict = json.loads(GCP_CREDENTIALS)
-        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        gc = gspread.authorize(creds)
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.sheet1 
-        try:
-            sheet_links = worksheet.col_values(7)[-200:]
-            processed_links.update(sheet_links)
-        except Exception:
-            pass
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        response = supabase.table('whale_alerts').select('link').order('created_at', desc=True).limit(500).execute()
+        db_links = [row['link'] for row in response.data]
+        processed_links.update(db_links)
     except Exception:
         pass
 
@@ -110,11 +102,17 @@ try:
                 
                 send_telegram_message(msg)
                 
-                if worksheet:
+                # 🌟 寫入 Supabase 資料庫 (金額傳入 None)
+                if supabase:
                     try:
-                        time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
-                        row_data = [time_str, "N/A", subject_name, category, filer_name, "N/A", link]
-                        worksheet.append_row(row_data)
+                        supabase.table('whale_alerts').insert({
+                            "ticker": "N/A",
+                            "company_name": subject_name,
+                            "alert_type": category,
+                            "actor": filer_name,
+                            "amount": None, 
+                            "link": link
+                        }).execute()
                     except Exception:
                         pass
                 
