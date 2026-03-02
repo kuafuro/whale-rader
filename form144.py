@@ -2,157 +2,68 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime, timezone, timedelta
-import os  
-from supabase import create_client, Client
-import html
+import os
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-supabase: Client = None
-
-MIN_PROPOSED_SALE = 1000000  
-STRICT_WATCHLIST = True 
-
-processed_links = set()
-CACHE_FILE = 'processed_links_form144.txt'
-
-if os.path.exists(CACHE_FILE):
-    with open(CACHE_FILE, 'r') as f:
-        processed_links.update(f.read().splitlines())
-
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        response = supabase.table('whale_alerts').select('link').order('created_at', desc=True).limit(500).execute()
-        db_links = [row['link'] for row in response.data]
-        processed_links.update(db_links)
-    except Exception:
-        pass
-
-def get_sp500_tickers():
-    try:
-        url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        tickers = set()
-        for row in soup.find('table', {'id': 'constituents'}).find_all('tr')[1:]:
-            ticker = row.find_all('td')[0].text.strip()
-            tickers.add(ticker); tickers.add(ticker.replace('.', '-'))
-        return tickers
-    except:
-        return set()
-
-SP500_TICKERS = get_sp500_tickers()
-
-def send_whale_telegram(message):
+def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'}
-    try:
-        requests.post(url, data=payload, timeout=10)
-    except Exception:
-        pass
+    requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'})
 
-headers = {'User-Agent': 'Form144RadarBot/2.0 (mingcheng@kuafuorhk.com)'}
-url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=144&owner=include&count=40&output=atom'
+headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
+url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=144&owner=only&count=40&output=atom'
 
 now_utc = datetime.now(timezone.utc)
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
-    response = requests.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
+    response = requests.get(url, headers=headers)
     soup = BeautifulSoup(response.content, 'xml')
     entries = soup.find_all('entry')
 
-    found_count = 0 
+    found_count = 0
 
     for entry in entries:
-        link = entry.link['href']
         updated_str = entry.updated.text
-        
-        if link in processed_links:
-            continue
         
         try:
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
-                break 
-        except Exception:
-            continue
+                break
+        except Exception as e:
+            pass
 
+        link = entry.link['href']
         txt_link = link.replace('-index.htm', '.txt')
-        time.sleep(0.15)
         
-        try:
-            txt_response = requests.get(txt_link, headers=headers, timeout=10)
-        except:
-            continue
-            
+        txt_response = requests.get(txt_link, headers=headers)
         if txt_response.status_code == 200:
-            xml_soup = BeautifulSoup(txt_response.content, 'xml')
+            txt_content = txt_response.text
+            
             try:
-                issuer_name_tag = xml_soup.find('issuerName')
-                issuer_name = issuer_name_tag.text if issuer_name_tag else "未知公司"
+                issuer_name = ""
+                for line in txt_content.split('\n'):
+                    if "ISSUER NAME:" in line or "Name of Issuer:" in line or "Name of Person for Whose Account" in line:
+                        issuer_name = line.split(':')[1].strip()
+                        break
                 
-                seller_tag = xml_soup.find('nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold')
-                seller_name = seller_tag.text if seller_tag else "未知高管/大股東"
+                if not issuer_name:
+                    issuer_name = "未知公司"
                 
-                issuer_name = html.escape(issuer_name)
-                seller_name = html.escape(seller_name)
+                msg = f"🚨 <b>【Form 144 內部高管逃生預警】</b>\n"
+                msg += f"🏢 公司: <b>{issuer_name}</b>\n"
+                msg += f"⚠️ <b>注意：有內部人士已提交拋售意向書！</b>\n"
+                msg += f"🔗 <a href='{link}'>查看 SEC 原文</a>"
                 
-                ticker_tag = xml_soup.find('issuerTradingSymbol')
-                ticker = ticker_tag.text if ticker_tag else "N/A"
+                send_telegram_message(msg)
                 
-                if STRICT_WATCHLIST:
-                    if not SP500_TICKERS or (ticker not in SP500_TICKERS):
-                        continue
-                        
-                market_value_tag = xml_soup.find('aggregateMarketValue')
-                market_value_str = market_value_tag.text if market_value_tag else "0"
-                
-                try:
-                    market_value = float(market_value_str)
-                except:
-                    market_value = 0
-                    
-                if market_value >= MIN_PROPOSED_SALE:
-                    msg = f"🚨 <b>【水晶球預警：Form 144 準備拋售！】</b>\n"
-                    msg += f"🏢 公司: <b>{issuer_name}</b> (${ticker})\n"
-                    msg += f"👤 拋售方: <b>{seller_name}</b>\n"
-                    msg += f"💀 預計倒貨規模: <b>${market_value:,.0f}</b> 美金\n"
-                    msg += f"⚠️ <i>(注意：此為拋售意向，股票可能即將流入市場)</i>\n"
-                    msg += f"🔗 <a href='{link}'>查看 SEC 原文</a>"
-                    
-                    send_whale_telegram(msg)
-                    
-                    if supabase:
-                        try:
-                            supabase.table('whale_alerts').insert({
-                                "ticker": ticker,
-                                "company_name": issuer_name,
-                                "alert_type": "🔴 準備拋售 (Form 144)",
-                                "actor": seller_name,
-                                "amount": market_value,
-                                "link": link
-                            }).execute()
-                        except Exception:
-                            pass
-
-                    processed_links.add(link)
-                    with open(CACHE_FILE, 'a') as f:
-                        f.write(link + '\n')
-
-                    found_count += 1
-                    time.sleep(1.5)
-                    
-            except Exception:
+                found_count += 1
+                time.sleep(1.5)
+            except Exception as e:
                 pass
                 
         if found_count >= 5:
             break
-
+            
 except Exception as e:
-    print(f"Form 144 雷達發生錯誤: {e}")
+    print(f"Form 144 執行失敗: {e}")
