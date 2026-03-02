@@ -9,7 +9,6 @@ import html
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID_WHALE = os.environ.get('TELEGRAM_CHAT_ID_WHALE') 
 
-# 🌟 初始化 Supabase
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
 supabase: Client = None
@@ -27,7 +26,6 @@ if os.path.exists(CACHE_FILE):
 if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        # 🌟 極速抓取最近 500 筆歷史網址
         response = supabase.table('whale_alerts').select('link').order('created_at', desc=True).limit(500).execute()
         db_links = [row['link'] for row in response.data]
         processed_links.update(db_links)
@@ -130,8 +128,31 @@ try:
                     
                     send_whale_telegram(msg)
                     
-                    # 🌟 寫入 Supabase 資料庫
                     if supabase:
                         try:
                             supabase.table('whale_alerts').insert({
                                 "ticker": ticker,
+                                "company_name": issuer_name,
+                                "alert_type": "🔴 準備拋售 (Form 144)",
+                                "actor": seller_name,
+                                "amount": market_value,
+                                "link": link
+                            }).execute()
+                        except Exception:
+                            pass
+
+                    processed_links.add(link)
+                    with open(CACHE_FILE, 'a') as f:
+                        f.write(link + '\n')
+
+                    found_count += 1
+                    time.sleep(1.5)
+                    
+            except Exception:
+                pass
+                
+        if found_count >= 5:
+            break
+
+except Exception as e:
+    print(f"Form 144 雷達發生錯誤: {e}")
