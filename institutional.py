@@ -1,4 +1,3 @@
-# ==================== 程式碼開始 ====================
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -14,11 +13,9 @@ def send_telegram_message(message):
     requests.get(url, params={'chat_id': CHAT_ID_WHALE, 'text': message, 'parse_mode': 'HTML'})
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
-# 監控 SC 13G (被動舉牌) 與 SC 13D (主動舉牌)
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13&owner=only&count=40&output=atom'
 
 now_utc = datetime.now(timezone.utc)
-# 🌟 V20 修復 2：時間窗擴大至 15 分鐘
 time_limit = now_utc - timedelta(minutes=15)
 
 try:
@@ -32,16 +29,13 @@ try:
         updated_str = entry.updated.text
         
         try:
-            # 🌟 V20 修復 3 & 5：強轉 Z 時區，並在過期時使用 break 全軍撤退！
             if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
                 break
         except Exception as e:
-            print(f"時間解析失敗: {e}")
             pass
             
         category = entry.category['term'] if entry.category else ""
         
-        # 鎖定 SC 13D 與 SC 13G 及其修正案
         if category.startswith('SC 13D') or category.startswith('SC 13G'):
             link = entry.link['href']
             txt_link = link.replace('-index.htm', '.txt')
@@ -50,14 +44,12 @@ try:
             if txt_response.status_code == 200:
                 txt_content = txt_response.text
                 
-                # 🌟 V20 修復 1：使用精準的 SEC XML 標籤狙擊敵軍！
                 subject_match = re.search(r'<SUBJECT-COMPANY>.*?<CONFORMED-NAME>([^\n]+)', txt_content, re.DOTALL)
                 filer_match = re.search(r'<FILED-BY>.*?<CONFORMED-NAME>([^\n]+)', txt_content, re.DOTALL)
                 
                 subject_name = subject_match.group(1).strip() if subject_match else "未知目標公司"
                 filer_name = filer_match.group(1).strip() if filer_match else "未知投資機構"
                 
-                # 意圖判定
                 intent = "🔥 <b>主動舉牌 (可能介入經營)</b>" if category.startswith('SC 13D') else "🤝 <b>被動投資 (純財務投資)</b>"
                 
                 msg = f"🦈 <b>【機構大鱷舉牌雷達】</b>\n"
@@ -77,4 +69,3 @@ try:
             
 except Exception as e:
     print(f"機構雷達執行發生錯誤: {e}")
-# ==================== 程式碼結束 ====================
