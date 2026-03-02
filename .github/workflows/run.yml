@@ -33,6 +33,7 @@ jobs:
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}  # 🌟 配發軍用級報價金鑰
         run: python form144.py
 
       - name: 引擎三：機構大鱷舉牌雷達
