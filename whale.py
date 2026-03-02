@@ -1,3 +1,4 @@
+# ==================== 程式碼開始 ====================
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -49,9 +50,19 @@ def get_sp500_tickers():
 
 SP500_TICKERS = get_sp500_tickers()
 
+# 🌟 裝備除錯聲納的新版心跳發射器
 def send_test_telegram(message):
+    if not CHAT_ID_TEST:
+        print("⚠️ 致命錯誤：指揮部未派發 TELEGRAM_CHAT_ID_TEST 密碼！")
+        return
+    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.get(url, params={'chat_id': CHAT_ID_TEST, 'text': message})
+    response = requests.get(url, params={'chat_id': CHAT_ID_TEST, 'text': message})
+    
+    if response.status_code == 200:
+        print(f"📡 心跳發送成功！測試頻道 ID: {CHAT_ID_TEST}")
+    else:
+        print(f"❌ 心跳發送失敗！錯誤碼: {response.status_code}, 原因: {response.text}")
 
 def send_telegram_photo(caption, photo_path):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
@@ -186,3 +197,4 @@ for entry in entries:
             
     if found_count >= 3:
         break
+# ==================== 程式碼結束 ====================
