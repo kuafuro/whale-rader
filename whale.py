@@ -1,4 +1,3 @@
-# ==================== 程式碼開始 ====================
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -70,8 +69,6 @@ if now_utc.hour % 3 == 0 and now_utc.minute <= 12:
 
 headers = {'User-Agent': 'MyFirstApp (your_email@example.com)'}
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=40&output=atom'
-
-# 🌟 V20 修復 2：時間窗擴大至 15 分鐘，防堵機房延遲
 time_limit = now_utc - timedelta(minutes=15)
 
 response = requests.get(url, headers=headers)
@@ -85,7 +82,6 @@ for entry in entries:
     updated_str = entry.updated.text
     
     try:
-        # 🌟 V20 修復 3 & 5：強轉 Z 時區，並在過期時使用 break 全軍撤退！
         if datetime.fromisoformat(updated_str.replace('Z', '+00:00')).astimezone(timezone.utc) < time_limit: 
             break 
     except Exception as e:
@@ -149,7 +145,6 @@ for entry in entries:
                         is_whale = True
                         msg += f"👉 {action}: {shares:,.0f} 股\n💰 總額: ${total_value:,.0f} (@${price}){intent_label}\n"
                         
-                        # 🌟 V20 修復 4：立即寫入資料庫，抓一筆記一筆，絕不覆蓋遺失！
                         if worksheet:
                             try:
                                 time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
@@ -161,7 +156,6 @@ for entry in entries:
                 msg += f"🔗 <a href='{link}'>查看 SEC 來源</a>"
                 
                 if is_whale:
-                    # 🌟 核心畫圖引擎啟動！
                     try:
                         end_date = datetime.now()
                         start_date = end_date - timedelta(days=180)
@@ -192,4 +186,3 @@ for entry in entries:
             
     if found_count >= 3:
         break
-# ==================== 程式碼結束 ====================
