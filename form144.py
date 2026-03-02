@@ -98,4 +98,63 @@ try:
                     block = sgml_block.group(1)
                     if issuer_name == "未知公司":
                         c_name = re.search(r'COMPANY CONFORMED NAME:\s*([^\n\r]+)', block)
-                        if c_name: issuer_name = c_name.group(1).
+                        if c_name: issuer_name = c_name.group(1).strip()
+                    if ticker == "N/A":
+                        cik_m = re.search(r'CENTRAL INDEX KEY:\s*(\d+)', block)
+                        if cik_m:
+                            cik_str = str(int(cik_m.group(1).strip()))
+                            ticker = CIK_TICKER_MAP.get(cik_str, "N/A")
+                            
+            if ticker == "N/A":
+                title_text = entry.title.text if entry.title else ""
+                cik_match_title = re.search(r'\((\d+)\)\s*\(Subject\)', title_text)
+                if cik_match_title:
+                     cik_str = str(int(cik_match_title.group(1)))
+                     ticker = CIK_TICKER_MAP.get(cik_str, "N/A")
+            
+            price_str = "N/A"
+            change_str = "N/A"
+            
+            if ticker != "N/A" and FINNHUB_API_KEY:
+                try:
+                    finnhub_url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={FINNHUB_API_KEY}"
+                    fh_resp = requests.get(finnhub_url)
+                    if fh_resp.status_code == 200:
+                        data = fh_resp.json()
+                        current_price = data.get('c', 0) 
+                        change_pct = data.get('dp', 0)   
+                        if current_price and current_price > 0:
+                            price_str = f"${current_price:.2f}"
+                            sign = "+" if change_pct > 0 else ""
+                            icon = "🟢" if change_pct > 0 else ("🔴" if change_pct < 0 else "⚪")
+                            change_str = f"{icon} {sign}{change_pct:.2f}%"
+                except Exception as e:
+                    pass
+            
+            msg = f"🚨 <b>【Form 144 內部高管逃生預警】</b>\n"
+            msg += f"🏢 公司：<b>{issuer_name} ({ticker})</b>\n"
+            msg += f"💲 股價：<b>{price_str}</b>\n"
+            msg += f"📊 升跌幅：<b>{change_str}</b>\n"
+            msg += f"⚠️ <b>注意：有內部人士已提交拋售意向書！</b>\n"
+            msg += f"🔗 <a href='{link}'>查看 SEC 原文</a>"
+            
+            send_telegram_message(msg)
+            
+            # 🌟 4. 發送成功後寫入資料庫
+            if worksheet:
+                try:
+                    time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
+                    row_data = [time_str, ticker, issuer_name, "⚠️ Form 144 拋售預警", "", "", link]
+                    worksheet.append_row(row_data)
+                    seen_links.add(link) 
+                except Exception as e:
+                    print(f"寫入 DB 失敗: {e}")
+            
+            found_count += 1
+            time.sleep(1.5)
+                
+        if found_count >= 5: 
+            break
+            
+except Exception as e:
+    print(f"Form 144 執行失敗: {e}")
