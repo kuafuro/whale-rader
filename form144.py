@@ -27,7 +27,6 @@ if GCP_CREDENTIALS and SPREADSHEET_ID:
         sh = gc.open_by_key(SPREADSHEET_ID)
         worksheet = sh.sheet1 
         
-        # 讀取第 7 欄 (G欄) 的所有歷史連結，只取最後 200 筆以加快速度
         all_links = worksheet.col_values(7)
         seen_links = set(all_links[-200:])
         print("✅ DB連線成功，已武裝防重複過濾網！")
@@ -52,7 +51,7 @@ CIK_TICKER_MAP = get_sec_ticker_map()
 url = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=144&owner=only&count=40&output=atom'
 
 now_utc = datetime.now(timezone.utc)
-# 🌟 2. 戰術大解放：有了資料庫過濾，我們直接把雷達波段拉到 30 分鐘，絕對不漏接！
+# 🌟 2. 雷達波段拉到 30 分鐘，絕對不漏接！
 time_limit = now_utc - timedelta(minutes=30)
 
 try:
@@ -75,7 +74,7 @@ try:
             
         link = entry.link['href']
         
-        # 🌟 3. 資料庫防重複攔截！如果這個 SEC 連結已經處理過，直接跳過！
+        # 🌟 3. 資料庫防重複攔截！
         if link in seen_links:
             continue
             
@@ -87,80 +86,16 @@ try:
             ticker = "N/A"
             issuer_name = "未知公司"
             
-            # X光直擊標籤
             sym_match = re.search(r'<(?:issuerSymbol|issuerTradingSymbol)>([^<]+)</(?:issuerSymbol|issuerTradingSymbol)>', txt_content, re.IGNORECASE)
             if sym_match: ticker = sym_match.group(1).strip().upper()
             
             name_match = re.search(r'<(?:nameOfIssuer|issuerName)>([^<]+)</(?:nameOfIssuer|issuerName)>', txt_content, re.IGNORECASE)
             if name_match: issuer_name = name_match.group(1).strip()
             
-            # SGML 備用
             if ticker == "N/A" or issuer_name == "未知公司":
                 sgml_block = re.search(r'(?:SUBJECT COMPANY|ISSUER):(.*?)(?:FILED BY:|REPORTING-OWNER:|<SEC-DOCUMENT>|</SEC-HEADER>)', txt_content, re.DOTALL | re.IGNORECASE)
                 if sgml_block:
                     block = sgml_block.group(1)
                     if issuer_name == "未知公司":
                         c_name = re.search(r'COMPANY CONFORMED NAME:\s*([^\n\r]+)', block)
-                        if c_name: issuer_name = c_name.group(1).strip()
-                    if ticker == "N/A":
-                        cik_m = re.search(r'CENTRAL INDEX KEY:\s*(\d+)', block)
-                        if cik_m:
-                            cik_str = str(int(cik_m.group(1).strip()))
-                            ticker = CIK_TICKER_MAP.get(cik_str, "N/A")
-                            
-            # 標題備用
-            if ticker == "N/A":
-                title_text = entry.title.text if entry.title else ""
-                cik_match_title = re.search(r'\((\d+)\)\s*\(Subject\)', title_text)
-                if cik_match_title:
-                     cik_str = str(int(cik_match_title.group(1)))
-                     ticker = CIK_TICKER_MAP.get(cik_str, "N/A")
-            
-            # Finnhub 報價
-            price_str = "N/A"
-            change_str = "N/A"
-            
-            if ticker != "N/A" and FINNHUB_API_KEY:
-                try:
-                    finnhub_url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={FINNHUB_API_KEY}"
-                    fh_resp = requests.get(finnhub_url)
-                    if fh_resp.status_code == 200:
-                        data = fh_resp.json()
-                        current_price = data.get('c', 0) 
-                        change_pct = data.get('dp', 0)   
-                        if current_price and current_price > 0:
-                            price_str = f"${current_price:.2f}"
-                            sign = "+" if change_pct > 0 else ""
-                            icon = "🟢" if change_pct > 0 else ("🔴" if change_pct < 0 else "⚪")
-                            change_str = f"{icon} {sign}{change_pct:.2f}%"
-                except Exception as e:
-                    pass
-            
-            msg = f"🚨 <b>【Form 144 內部高管逃生預警】</b>\n"
-            msg += f"🏢 公司：<b>{issuer_name} ({ticker})</b>\n"
-            msg += f"💲 股價：<b>{price_str}</b>\n"
-            msg += f"📊 升跌幅：<b>{change_str}</b>\n"
-            msg += f"⚠️ <b>注意：有內部人士已提交拋售意向書！</b>\n"
-            msg += f"🔗 <a href='{link}'>查看 SEC 原文</a>"
-            
-            send_telegram_message(msg)
-            
-            # 🌟 4. 發送成功後，寫入資料庫，確保下次巡邏絕對不會重複發送！
-            if worksheet:
-                try:
-                    time_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
-                    # 寫入格式：時間 | Ticker | 公司名 | 動作 | 數量(空) | 金額(空) | 連結
-                    row_data = [time_str, ticker, issuer_name, "⚠️ Form 144 拋售預警", "", "", link]
-                    worksheet.append_row(row_data)
-                    seen_links.add(link) # 同步更新記憶體
-                except Exception as e:
-                    print(f"寫入 DB 失敗: {e}")
-            
-            found_count += 1
-            time.sleep(1.5)
-                
-        if found_count >= 5: # 開放火力上限
-            break
-            
-except Exception as e:
-    print(f"Form 144 執行失敗: {e}")
+                        if c_name: issuer_name = c_name.group(1).
