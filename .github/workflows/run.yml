@@ -10,51 +10,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' 
           
-      - name: 安裝所需套件
-        run: pip install -r requirements.txt
+      - name: 安裝所需套件 (🌟 包含所有重裝備與 Google 鑰匙)
+        run: pip install requests beautifulsoup4 lxml google-generativeai yfinance mplfinance pandas gspread google-auth
         
       - name: 引擎一：Form 4 內部高管雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
         run: python whale.py
-        continue-on-error: true
 
       - name: 引擎二：Form 144 提前逃生預警
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python form144.py
-        continue-on-error: true
 
       - name: 引擎三：機構大鱷舉牌雷達
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python institutional.py
-        continue-on-error: true
 
       - name: 引擎四：AI 8-K 財報秒讀機
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python ai_analyst.py
-        continue-on-error: true
