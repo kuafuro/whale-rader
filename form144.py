@@ -63,14 +63,14 @@ def ai_explain_selling(company_name, ticker, sector, market_cap_m):
     try:
         mc = f"Market cap: ${market_cap_m:,.0f}M. " if market_cap_m > 0 else ""
         prompt = (
-            f"Company: {company_name} ({ticker}), Sector: {sector}. {mc}"
-            f"An insider filed Form 144 to sell shares.\n\n"
-            f"In Traditional Chinese, within 100 words, be SHORT and DIRECT:\n"
-            f"1. {sector} sector current trend (1 sentence)\n"
-            f"2. Most likely reason for insider selling (search latest news)\n"
-            f"3. Risk level\n\n"
-            f"End with: \U0001f534 high risk / \U0001f7e1 medium risk / \U0001f7e2 low risk\n"
-            f"No markdown. No filler. Be concise like a Bloomberg terminal alert."
+            f"\u516c\u53f8\uff1a{company_name} ({ticker})\uff0c\u677f\u584a\uff1a{sector}\u3002{mc}"
+            f"\u6709\u5167\u90e8\u4eba\u58eb\u5411 SEC \u63d0\u4ea4 Form 144\uff08\u62cb\u552e\u610f\u5411\u66f8\uff09\u3002\n\n"
+            f"\u8acb\u7528\u7e41\u9ad4\u4e2d\u6587\uff0c100\u5b57\u5167\uff0c\u7c21\u6f54\u76f4\u63a5\u5206\u6790\uff1a\n"
+            f"1. {sector} \u677f\u584a\u76ee\u524d\u8da8\u52e2\uff08\u770b\u591a/\u770b\u7a7a\uff0c\u4e00\u53e5\u8a71\uff09\n"
+            f"2. \u9019\u6b21\u5167\u90e8\u4eba\u62cb\u552e\u6700\u53ef\u80fd\u7684\u539f\u56e0\uff08\u641c\u5c0b\u6700\u65b0\u65b0\u805e\uff09\n"
+            f"3. \u98a8\u96aa\u8a55\u4f30\n\n"
+            f"\u6700\u5f8c\u4e00\u884c\u7528\uff1a\U0001f534 \u9ad8\u98a8\u96aa / \U0001f7e1 \u4e2d\u98a8\u96aa / \U0001f7e2 \u4f4e\u98a8\u96aa\n"
+            f"\u7981\u6b62\u4f7f\u7528 markdown\u3002\u7981\u6b62\u5ee2\u8a71\u3002\u50cf Bloomberg \u7d42\u7aef\u8b66\u5831\u4e00\u6a23\u7c21\u6f54\u3002"
         )
         resp = gemini_client.models.generate_content(
             model="gemini-3.1-pro-preview", contents=prompt,
