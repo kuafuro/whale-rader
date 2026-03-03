@@ -1,10 +1,8 @@
 name: 5-Minute Whale Alert
-
 on:
   schedule:
     - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,36 +15,49 @@ jobs:
         with:
           python-version: '3.10'
           
-      - name: 安裝所需套件 (🌟 包含所有重裝備與 Google 鑰匙)
-        run: pip install requests beautifulsoup4 lxml google-generativeai yfinance mplfinance pandas gspread google-auth
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml yfinance mplfinance pandas google-genai
         
-      - name: 引擎一：Form 4 內部高管雷達
+      - name: "Engine 1: Form 4 Whale Alert"
         env: 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_TEST: ${{ secrets.TELEGRAM_CHAT_ID_TEST }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
-          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python whale.py
-
-      - name: 引擎二：Form 144 提前逃生預警
-        env: 
+        continue-on-error: true
+        
+      - name: "Engine 2: Form 144 Selling Alert"
+        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }} # 🌟 裝備資料庫金鑰
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}   # 🌟 裝備資料庫金鑰
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python form144.py
+        continue-on-error: true
         
-      - name: 引擎三：機構大鱷舉牌雷達
-        env: 
+      - name: "Engine 3: SC 13D/G Institutional Radar"
+        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python institutional.py
-
-      - name: 引擎四：AI 8-K 財報秒讀機
-        env: 
+        continue-on-error: true
+        
+      - name: "Engine 4: AI 8-K Analyzer"
+        env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python ai_analyst.py
+        continue-on-error: true
