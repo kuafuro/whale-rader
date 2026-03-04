@@ -1,0 +1,31 @@
+name: Daily Portfolio Report
+on:
+  schedule:
+    # HKT 07:00 = UTC 23:00 (previous day) -> post-close
+    - cron: '0 23 * * 0-4'
+    # HKT 21:00 = UTC 13:00 -> pre-open
+    - cron: '0 13 * * 1-5'
+  workflow_dispatch:
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install requests google-genai
+      - name: "Daily Portfolio Report"
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID_PRIVATE: ${{ secrets.TELEGRAM_CHAT_ID_PRIVATE }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ETORO_USER_KEY: ${{ secrets.ETORO_USER_KEY }}
+          ETORO_API_KEY: ${{ secrets.ETORO_API_KEY }}
+        run: python daily_report.py
