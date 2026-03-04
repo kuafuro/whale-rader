@@ -58,23 +58,48 @@ def get_company_profile(ticker):
     except: pass
     return {"sector":"N/A","industry":"N/A","marketCap":0}
 
-def ai_explain_selling(company_name, ticker, sector, market_cap_m):
-    if not gemini_client: return "\u26a0\ufe0f \u6709\u5167\u90e8\u4eba\u58eb\u5df2\u63d0\u4ea4\u62cb\u552e\u610f\u5411\u66f8"
+def ai_is_routine_selling(company_name, ticker):
+    """AI pre-screen: return True if this is routine selling (tax/vesting), skip it"""
+    if not gemini_client: return False
     try:
-        mc = f"Market cap: ${market_cap_m:,.0f}M. " if market_cap_m > 0 else ""
         prompt = (
-            f"\u516c\u53f8\uff1a{company_name} ({ticker})\uff0c\u677f\u584a\uff1a{sector}\u3002{mc}"
-            f"\u6709\u5167\u90e8\u4eba\u58eb\u5411 SEC \u63d0\u4ea4 Form 144\uff08\u62cb\u552e\u610f\u5411\u66f8\uff09\u3002\n\n"
-            f"\u8acb\u7528\u7e41\u9ad4\u4e2d\u6587\uff0c100\u5b57\u5167\uff0c\u7c21\u6f54\u76f4\u63a5\u5206\u6790\uff1a\n"
-            f"1. {sector} \u677f\u584a\u76ee\u524d\u8da8\u52e2\uff08\u770b\u591a/\u770b\u7a7a\uff0c\u4e00\u53e5\u8a71\uff09\n"
-            f"2. \u9019\u6b21\u5167\u90e8\u4eba\u62cb\u552e\u6700\u53ef\u80fd\u7684\u539f\u56e0\uff08\u641c\u5c0b\u6700\u65b0\u65b0\u805e\uff09\n"
-            f"3. \u98a8\u96aa\u8a55\u4f30\n\n"
-            f"\u6700\u5f8c\u4e00\u884c\u7528\uff1a\U0001f534 \u9ad8\u98a8\u96aa / \U0001f7e1 \u4e2d\u98a8\u96aa / \U0001f7e2 \u4f4e\u98a8\u96aa\n"
-            f"\u7981\u6b62\u4f7f\u7528 markdown\u3002\u7981\u6b62\u5ee2\u8a71\u3002\u50cf Bloomberg \u7d42\u7aef\u8b66\u5831\u4e00\u6a23\u7c21\u6f54\u3002"
+            f"Company: {company_name} ({ticker}) filed Form 144 with SEC.\n"
+            f"Search latest news. Is this most likely ROUTINE selling "
+            f"(restricted stock vesting, tax withholding, 10b5-1 plan, scheduled sale)?\n"
+            f"Reply ONLY 'ROUTINE' or 'NOT_ROUTINE'. One word only."
         )
         resp = gemini_client.models.generate_content(
             model="gemini-3.1-pro-preview", contents=prompt,
-            config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]))
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            ))
+        answer = resp.text.strip().upper()
+        is_routine = "ROUTINE" in answer and "NOT" not in answer
+        print(f"    AI pre-screen: {answer} -> {'SKIP' if is_routine else 'ALERT'}")
+        return is_routine
+    except Exception as e:
+        print(f"    AI pre-screen error: {e}")
+        return False
+
+def ai_explain_selling(company_name, ticker, sector, market_cap_m):
+    if not gemini_client: return "\u26a0\ufe0f \u6709\u5167\u90e8\u4eba\u58eb\u5df2\u63d0\u4ea4\u62cb\u552e\u610f\u5411\u66f8"
+    try:
+        mc = f"\u5e02\u503c\uff1a${market_cap_m/1000:.1f}B\u3002" if market_cap_m >= 1000 else ""
+        prompt = (
+            f"\u516c\u53f8\uff1a{company_name} ({ticker})\uff0c\u677f\u584a\uff1a{sector}\u3002{mc}\n"
+            f"\u5167\u90e8\u4eba\u58eb\u5411 SEC \u63d0\u4ea4 Form 144 \u62cb\u552e\u610f\u5411\u66f8\u3002\n\n"
+            f"\u8acb\u7528\u7e41\u9ad4\u4e2d\u6587\uff0c80\u5b57\u5167\uff0c\u7c21\u6f54\u5206\u6790\uff1a\n"
+            f"1. {sector} \u677f\u584a\u8da8\u52e2\uff08\u770b\u591a\u6216\u770b\u7a7a\uff0c\u4e00\u53e5\uff09\n"
+            f"2. \u62cb\u552e\u539f\u56e0\uff08\u641c\u5c0b\u65b0\u805e\uff09\n"
+            f"3. \u98a8\u96aa\u5224\u65b7\n\n"
+            f"\u7d50\u5c3e\uff1a\U0001f534\u9ad8\u98a8\u96aa / \U0001f7e1\u4e2d\u98a8\u96aa / \U0001f7e2\u4f4e\u98a8\u96aa\n"
+            f"\u7981 markdown\u3002\u7981\u5ee2\u8a71\u3002Bloomberg \u98a8\u683c\u3002"
+        )
+        resp = gemini_client.models.generate_content(
+            model="gemini-3.1-pro-preview", contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            ))
         return resp.text.strip()
     except Exception as e:
         print(f"  Gemini error: {e}")
@@ -152,26 +177,55 @@ try:
             sector = profile["sector"]
             market_cap_m = profile["marketCap"]
             sector_emoji = get_sector_emoji(sector)
+
+            # Gate 1: market cap > $5B only
+            MIN_MARKET_CAP = 5000  # $5B in millions
+            if market_cap_m < MIN_MARKET_CAP:
+                print(f"    Skipped: market cap ${market_cap_m:.0f}M < ${MIN_MARKET_CAP}M")
+                continue
+
+            # Gate 2: AI pre-screen - skip routine selling
+            if ai_is_routine_selling(issuer_name, ticker):
+                print(f"    Skipped: routine selling (tax/vesting)")
+                # Still log to DB as routine, but don't send Telegram
+                supabase_insert({
+                    "source": "form144", "ticker": ticker, "company_name": issuer_name,
+                    "action": "\u2705 \u5e38\u898f\u62cb\u552e\uff08\u5df2\u904e\u6ffe\uff09",
+                    "price": current_price, "change_pct": change_pct,
+                    "sec_link": link,
+                    "extra_data": json.dumps({"sector": sector, "market_cap_m": market_cap_m, "filtered": True})
+                })
+                continue
+
+            # Write to Supabase FIRST to prevent duplicates
+            inserted = supabase_insert({
+                "source": "form144", "ticker": ticker, "company_name": issuer_name,
+                "action": "\u26a0\ufe0f Form 144 \u62cb\u552e\u9810\u8b66",
+                "price": current_price, "change_pct": change_pct,
+                "sec_link": link,
+                "extra_data": json.dumps({"sector": sector, "industry": profile["industry"], "market_cap_m": market_cap_m})
+            })
+            if not inserted:
+                print(f"    Skipped: already in DB or insert failed")
+                continue
+
             ai_analysis = ai_explain_selling(issuer_name, ticker, sector, market_cap_m)
             msg = "\U0001f6a8 <b>\u3010Form 144 \u5167\u90e8\u9ad8\u7ba1\u9003\u751f\u9810\u8b66\u3011</b>\n"
             msg += f"\U0001f3e2 \u516c\u53f8\uff1a<b>{issuer_name} ({ticker})</b>\n"
             msg += f"{sector_emoji} \u677f\u584a\uff1a<b>{sector}</b>\n"
             msg += f"\U0001f4b2 \u80a1\u50f9\uff1a<b>{price_str}</b>  {change_str}\n"
-            if market_cap_m > 0:
-                if market_cap_m >= 1000:
-                    msg += f"\U0001f4b0 \u5e02\u503c\uff1a<b>${market_cap_m/1000:.1f}B</b>\n"
-                else:
-                    msg += f"\U0001f4b0 \u5e02\u503c\uff1a<b>${market_cap_m:.0f}M</b>\n"
+            msg += f"\U0001f4b0 \u5e02\u503c\uff1a<b>${market_cap_m/1000:.1f}B</b>\n"
             msg += f"\U0001f9e0 <b>AI \u5206\u6790\uff1a</b>\n{ai_analysis}\n"
             msg += f"\U0001f517 <a href='{link}'>\u67e5\u770b SEC \u539f\u6587</a>"
             send_telegram_message(msg)
-            supabase_insert({
-                "source": "form144", "ticker": ticker, "company_name": issuer_name,
-                "action": "\u26a0\ufe0f Form 144 \u62cb\u552e\u9810\u8b66",
-                "price": current_price, "change_pct": change_pct,
-                "ai_summary": ai_analysis, "sec_link": link,
-                "extra_data": json.dumps({"sector": sector, "industry": profile["industry"], "market_cap_m": market_cap_m})
-            })
+
+            # Update DB with AI summary
+            if SUPABASE_URL and SUPABASE_KEY:
+                try:
+                    h = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"}
+                    requests.patch(f"{SUPABASE_URL}/rest/v1/whale_alerts?sec_link=eq.{link}", headers=h, json={"ai_summary": ai_analysis})
+                except: pass
+
             found_count += 1
             time.sleep(2)
         if found_count >= 5: break
