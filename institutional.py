@@ -50,6 +50,7 @@ def ai_institution_background(filer_name, subject_name, category):
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
+                http_options=types.HttpOptions(timeout=20000),
             )
         )
         return response.text.strip()
