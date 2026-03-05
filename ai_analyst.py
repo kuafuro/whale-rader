@@ -37,7 +37,7 @@ def main():
     time_limit = now_utc - timedelta(minutes=15)
 
     resp = requests.get(
-        'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&owner=only&count=40&output=atom',
+        'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&owner=include&count=40&output=atom',
         headers=hdrs
     )
     soup = BeautifulSoup(resp.content, 'xml')

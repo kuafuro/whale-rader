@@ -10,7 +10,7 @@ import os, re, json
 from google import genai
 from google.genai import types
 
-from utils.supabase import supabase_insert, supabase_link_exists
+from utils.supabase import supabase_insert, supabase_link_exists, supabase_patch
 from utils.finnhub import get_stock_quote, get_company_profile
 from utils.telegram import send_whale_telegram
 
@@ -217,7 +217,6 @@ def main():
         send_whale_telegram(msg)
 
         # Update DB with AI summary
-        from utils.supabase import supabase_patch
         supabase_patch(link, {"ai_summary": ai_analysis})
 
         found_count += 1
