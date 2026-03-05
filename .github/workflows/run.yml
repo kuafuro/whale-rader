@@ -31,6 +31,7 @@ jobs:
         continue-on-error: true
         
       - name: "Engine 2: Form 144 Selling Alert"
+        timeout-minutes: 4
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
@@ -42,6 +43,7 @@ jobs:
         continue-on-error: true
         
       - name: "Engine 3: SC 13D/G Institutional Radar"
+        timeout-minutes: 4
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}
@@ -51,8 +53,9 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python institutional.py
         continue-on-error: true
-        
+
       - name: "Engine 4: AI 8-K Analyzer"
+        timeout-minutes: 4
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID_WHALE: ${{ secrets.TELEGRAM_CHAT_ID_WHALE }}

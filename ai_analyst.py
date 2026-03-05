@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import os, re, json
 from google import genai
+from google.genai import types
 
 from utils.supabase import supabase_insert, supabase_link_exists
 from utils.finnhub import get_stock_quote
@@ -75,7 +76,10 @@ def main():
             f"Filing:\n{content[:15000]}"
         )
         try:
-            ai_resp = gemini_client.models.generate_content(model="gemini-3.1-pro-preview", contents=prompt)
+            ai_resp = gemini_client.models.generate_content(
+                model="gemini-3.1-pro-preview", contents=prompt,
+                config=types.GenerateContentConfig(http_options=types.HttpOptions(timeout=20000))
+            )
             summary = ai_resp.text.strip()
             sentiment = "bullish" if "🚀" in summary else ("bearish" if "📉" in summary else "neutral")
 

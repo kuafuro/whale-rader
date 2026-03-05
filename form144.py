@@ -62,6 +62,7 @@ def ai_is_routine_selling(company_name, ticker):
             model="gemini-3.1-pro-preview", contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
+                http_options=types.HttpOptions(timeout=20000),
             ))
         answer = resp.text.strip().upper()
         is_routine = "ROUTINE" in answer and "NOT" not in answer
@@ -91,6 +92,7 @@ def ai_explain_selling(company_name, ticker, sector, market_cap_m):
             model="gemini-3.1-pro-preview", contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())],
+                http_options=types.HttpOptions(timeout=20000),
             ))
         return resp.text.strip()
     except Exception as e:
