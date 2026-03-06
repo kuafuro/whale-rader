@@ -10,7 +10,7 @@ import os, re, json
 from google import genai
 from google.genai import types
 
-from utils.supabase import supabase_insert, supabase_link_exists, supabase_patch
+from utils.supabase import supabase_insert, supabase_link_exists, supabase_patch, supabase_ticker_recent
 from utils.finnhub import get_stock_quote, get_company_profile
 from utils.telegram import send_whale_telegram
 
@@ -173,6 +173,12 @@ def main():
                 issuer_name = alt.group(1).strip()
 
         print(f"  {issuer_name} ({ticker})")
+
+        # Dedup: skip if same ticker already alerted recently (multiple insiders filing)
+        if ticker != "N/A" and supabase_ticker_recent("form144", ticker, minutes=60):
+            print(f"    Skipped: {ticker} already alerted within 60 min")
+            continue
+
         price_str, change_str, current_price, change_pct = get_stock_quote(ticker)
         profile = get_company_profile(ticker)
         sector = profile["sector"]

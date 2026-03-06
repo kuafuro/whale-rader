@@ -59,7 +59,13 @@ def main():
         if not gemini_client:
             break
 
-        company = entry.title.text.split(' - ')[0].strip() if entry.title else "Unknown"
+        # SEC title format: "8-K - Company Name (CIK) (Filer)"
+        raw_title = entry.title.text if entry.title else ""
+        parts = raw_title.split(' - ', 1)
+        if len(parts) > 1:
+            company = re.sub(r'\s*\(\d+\)\s*\(.*?\)\s*$', '', parts[1]).strip()
+        else:
+            company = raw_title.strip() or "Unknown"
         txt_resp = requests.get(link.replace('-index.htm', '.txt'), headers=hdrs)
 
         if txt_resp.status_code != 200:
