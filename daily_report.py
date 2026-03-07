@@ -112,8 +112,9 @@ def main():
     now_utc = datetime.now(timezone.utc)
     hkt = now_utc + timedelta(hours=8)
 
-    if hkt.weekday() >= 5:
-        print(f"Weekend (HKT {hkt.strftime('%A')}), skipping")
+    # Skip Sunday entirely; skip Saturday afternoon/evening (only Saturday morning runs)
+    if hkt.weekday() == 6 or (hkt.weekday() == 5 and hkt.hour >= 12):
+        print(f"Weekend (HKT {hkt.strftime('%A')} {hkt.strftime('%H:%M')}), skipping")
         return
 
     report_type = "morning" if hkt.hour < 12 else "premarket"
