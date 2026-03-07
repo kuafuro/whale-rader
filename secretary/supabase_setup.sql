@@ -17,3 +17,11 @@ CREATE INDEX IF NOT EXISTS idx_tasks_chat_id ON secretary_tasks(chat_id);
 -- Migration: if table already exists, add chat_id column
 -- ALTER TABLE secretary_tasks ADD COLUMN IF NOT EXISTS chat_id TEXT;
 -- CREATE INDEX IF NOT EXISTS idx_tasks_chat_id ON secretary_tasks(chat_id);
+
+-- Per-member settings (Google Calendar token, display name, etc.)
+CREATE TABLE IF NOT EXISTS member_settings (
+    chat_id TEXT PRIMARY KEY,
+    display_name TEXT,
+    google_token_b64 TEXT,              -- base64 Google Calendar OAuth token
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);

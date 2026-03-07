@@ -14,8 +14,18 @@ GOOGLE_TOKEN_B64 = os.environ.get('GOOGLE_TOKEN_B64')
 
 
 def get_google_token(chat_id: int) -> str | None:
-    """Return per-member Google token if configured, else fall back to default."""
-    return os.environ.get(f'GOOGLE_TOKEN_B64_{chat_id}') or GOOGLE_TOKEN_B64
+    """Return per-member Google token. Priority: env var → DB → default env var."""
+    env_token = os.environ.get(f'GOOGLE_TOKEN_B64_{chat_id}')
+    if env_token:
+        return env_token
+    try:
+        from services.member_settings import get_google_token as _db_token
+        db_token = _db_token(chat_id)
+        if db_token:
+            return db_token
+    except Exception:
+        pass
+    return GOOGLE_TOKEN_B64
 
 # Daily briefing time (HKT = UTC+8)
 BRIEFING_MORNING_HOUR = 8   # HKT 08:00

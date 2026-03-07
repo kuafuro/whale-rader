@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 
 import config
+import services.member_settings as ms
 from services.calendar_service import CalendarService
 from services.task_store import TaskStore
 from services.team_monitor import get_team_status_raw
@@ -44,6 +45,11 @@ SYSTEM_PROMPT = """你是一位專業、高效的 AI 秘書，名字叫「小秘
 - 現在時區是 HKT（UTC+8）
 - 「明天」、「後天」、「下週」等相對時間要根據現在時間計算
 - 如果用戶沒說時間，會議默認1小時
+
+設定相關：
+- 用戶問設定/名字/Calendar狀態 → 用 get_my_settings 工具查詢
+- 用戶要改名字 → 用 set_display_name 工具
+- 用戶要連接 Google Calendar → 告訴他：先在本地執行 auth_setup.py，取得 token 後發送指令 /setting token <token>
 
 重要：只有僱主本人才能使用你的功能。"""
 
@@ -136,6 +142,25 @@ TOOLS = [types.Tool(function_declarations=[
             properties={}
         )
     ),
+    types.FunctionDeclaration(
+        name="get_my_settings",
+        description="查看用戶自己的設定，包括顯示名稱和 Google Calendar 連接狀態",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={}
+        )
+    ),
+    types.FunctionDeclaration(
+        name="set_display_name",
+        description="設定用戶的顯示名稱",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "name": types.Schema(type=types.Type.STRING, description="要設定的名字")
+            },
+            required=["name"]
+        )
+    ),
 ])]
 
 
@@ -189,6 +214,17 @@ class SecretaryAgent:
 
             elif name == "get_latest_alerts":
                 return _get_latest_alerts(args.get("limit", 5))
+
+            elif name == "get_my_settings":
+                row = ms.get(chat_id)
+                display_name = row.get("display_name") or "（未設定）" if row else "（未設定）"
+                has_cal = bool(row.get("google_token_b64")) if row else False
+                cal_status = "✅ 已連接" if has_cal else "❌ 未設定"
+                return f"顯示名稱：{display_name}\nGoogle Calendar：{cal_status}"
+
+            elif name == "set_display_name":
+                ok = ms.upsert(chat_id, display_name=args["name"])
+                return f"✅ 名稱已設定為：{args['name']}" if ok else "❌ 儲存失敗"
 
             return f"未知工具：{name}"
         except Exception as e:

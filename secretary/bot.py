@@ -5,6 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import config
 from handlers.commands import start_command, help_command, status_command, brief_command
 from handlers.message import handle_message
+from handlers.setting import setting_command
 from services.briefing import schedule_daily_briefings
 
 logging.basicConfig(
@@ -26,9 +27,10 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("brief", brief_command))
+    app.add_handler(CommandHandler("setting", setting_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    schedule_daily_briefings(app)
+    app.post_init = schedule_daily_briefings
 
     logger.info("🤖 Secretary Bot starting...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
