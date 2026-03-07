@@ -14,11 +14,12 @@ HKT = timezone(timedelta(hours=8))
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
-def _load_credentials():
-    if not config.GOOGLE_TOKEN_B64:
+def _load_credentials(token_b64: str = None):
+    token_b64 = token_b64 or config.GOOGLE_TOKEN_B64
+    if not token_b64:
         return None
     try:
-        token_json = base64.b64decode(config.GOOGLE_TOKEN_B64).decode()
+        token_json = base64.b64decode(token_b64).decode()
         creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -29,12 +30,13 @@ def _load_credentials():
 
 
 class CalendarService:
-    def __init__(self):
+    def __init__(self, token_b64: str = None):
+        self._token_b64 = token_b64  # None = use default from config
         self._creds = None
 
     def _get_service(self):
         if not self._creds or not self._creds.valid:
-            self._creds = _load_credentials()
+            self._creds = _load_credentials(self._token_b64)
         if not self._creds:
             return None
         return build('calendar', 'v3', credentials=self._creds, cache_discovery=False)

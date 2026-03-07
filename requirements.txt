@@ -5,3 +5,4 @@ yfinance
 mplfinance
 pandas
 google-genai
+pandas_market_calendars

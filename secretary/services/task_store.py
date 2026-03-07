@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 
 class TaskStore:
     """Task storage backed by Supabase secretary_tasks table.
-    Falls back to in-memory if Supabase is not configured."""
+    Falls back to in-memory if Supabase is not configured.
+    Each instance is scoped to a single chat_id for member isolation."""
 
-    def __init__(self):
+    def __init__(self, chat_id: int = None):
+        self._chat_id = str(chat_id) if chat_id is not None else None
         self._memory = []  # fallback
         self._use_supabase = bool(config.SUPABASE_URL and config.SUPABASE_KEY)
 
@@ -29,6 +31,8 @@ class TaskStore:
                 data = {"title": title, "completed": False}
                 if due_date:
                     data["due_date"] = due_date
+                if self._chat_id:
+                    data["chat_id"] = self._chat_id
                 r = requests.post(
                     f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
                     headers=self._headers(), json=data
@@ -50,6 +54,8 @@ class TaskStore:
                 params = {"order": "created_at.asc"}
                 if not show_completed:
                     params["completed"] = "eq.false"
+                if self._chat_id:
+                    params["chat_id"] = f"eq.{self._chat_id}"
                 r = requests.get(
                     f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
                     headers=self._headers(), params=params

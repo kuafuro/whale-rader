@@ -10,8 +10,21 @@ from services.team_monitor import get_team_status_raw
 
 logger = logging.getLogger(__name__)
 
-calendar = CalendarService()
-tasks = TaskStore()
+# Per-member service caches keyed by chat_id
+_calendars: dict[int, CalendarService] = {}
+_task_stores: dict[int, TaskStore] = {}
+
+
+def _get_calendar(chat_id: int) -> CalendarService:
+    if chat_id not in _calendars:
+        _calendars[chat_id] = CalendarService(token_b64=config.get_google_token(chat_id))
+    return _calendars[chat_id]
+
+
+def _get_task_store(chat_id: int) -> TaskStore:
+    if chat_id not in _task_stores:
+        _task_stores[chat_id] = TaskStore(chat_id=chat_id)
+    return _task_stores[chat_id]
 
 SYSTEM_PROMPT = """你是一位專業、高效的 AI 秘書，名字叫「小秘」。你的僱主是你唯一的用戶。
 
@@ -142,7 +155,7 @@ class SecretaryAgent:
             )
         return self.sessions[chat_id]
 
-    def _execute_tool(self, name: str, args: dict) -> str:
+    def _execute_tool(self, name: str, args: dict, chat_id: int) -> str:
         try:
             if name == "get_current_datetime":
                 now = datetime.now(timezone(timedelta(hours=8)))
@@ -150,10 +163,10 @@ class SecretaryAgent:
 
             elif name == "get_schedule":
                 date_str = args.get("date", datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d'))
-                return calendar.get_events(date_str)
+                return _get_calendar(chat_id).get_events(date_str)
 
             elif name == "add_event":
-                return calendar.add_event(
+                return _get_calendar(chat_id).add_event(
                     title=args["title"],
                     date=args["date"],
                     time=args["time"],
@@ -162,13 +175,13 @@ class SecretaryAgent:
                 )
 
             elif name == "add_task":
-                return tasks.add(args["title"], args.get("due_date"))
+                return _get_task_store(chat_id).add(args["title"], args.get("due_date"))
 
             elif name == "list_tasks":
-                return tasks.list_tasks(show_completed=args.get("show_completed", False))
+                return _get_task_store(chat_id).list_tasks(show_completed=args.get("show_completed", False))
 
             elif name == "complete_task":
-                return tasks.complete(args["task_id"])
+                return _get_task_store(chat_id).complete(args["task_id"])
 
             elif name == "check_team_status":
                 import asyncio
@@ -198,7 +211,7 @@ class SecretaryAgent:
             for part in fn_calls:
                 fc = part.function_call
                 logger.info(f"Calling tool: {fc.name}({dict(fc.args)})")
-                result = self._execute_tool(fc.name, dict(fc.args))
+                result = self._execute_tool(fc.name, dict(fc.args), chat_id)
                 results.append(types.Part(
                     function_response=types.FunctionResponse(
                         name=fc.name,

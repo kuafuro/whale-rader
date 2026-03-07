@@ -116,6 +116,14 @@ def main():
         print(f"Weekend (HKT {hkt.strftime('%A')}), skipping")
         return
 
+    # Skip US market holidays
+    import pandas_market_calendars as mcal
+    nyse = mcal.get_calendar('NYSE')
+    us_date = now_utc.strftime('%Y-%m-%d')
+    if nyse.schedule(start_date=us_date, end_date=us_date).empty:
+        print(f"US market holiday ({us_date}), skipping")
+        return
+
     report_type = "morning" if hkt.hour < 12 else "premarket"
     report_label = "🌅 收盤報告" if report_type == "morning" else "🌕 盤前報告"
     print(f"Report type: {report_type} (HKT {hkt.strftime('%H:%M')})")

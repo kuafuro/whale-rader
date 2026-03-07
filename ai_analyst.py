@@ -77,8 +77,9 @@ def main():
 
         prompt = (
             "This is a partial US SEC 8-K filing. Act as a professional Wall Street analyst.\n"
-            "If the filing contains only XBRL tags, boilerplate headers, or no substantive financial/business content, "
-            "reply with exactly one word: SKIP\n"
+            "Reply with exactly one word SKIP if any of these apply: "
+            "only XBRL tags, boilerplate headers, truncated/incomplete content with no event description, "
+            "routine debt admin (covenant updates, supplemental indentures, note listings), or no substantive financial/business event.\n"
             "Otherwise summarize the key points in Traditional Chinese in 3-5 sentences. "
             "Judge if bullish, bearish, or neutral. Use emoji: 🚀 bullish, 📉 bearish, 😐 neutral.\n\n"
             f"Filing:\n{content[:15000]}"
