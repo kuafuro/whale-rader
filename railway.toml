@@ -4,5 +4,4 @@ dockerfilePath = "secretary/Dockerfile"
 buildContext = "secretary"
 
 [deploy]
-startCommand = "python bot.py"
 restartPolicyType = "always"
