@@ -36,7 +36,13 @@ def main():
                 print("Download it from: Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs")
                 return
             flow = InstalledAppFlow.from_client_secrets_file(CREDS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
+            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print("\n請用瀏覽器開啟以下網址並授權：")
+            print(f"\n{auth_url}\n")
+            code = input("授權完成後，貼上網頁顯示的授權碼：").strip()
+            flow.fetch_token(code=code)
+            creds = flow.credentials
 
         with open(TOKEN_FILE, 'w') as f:
             f.write(creds.to_json())
