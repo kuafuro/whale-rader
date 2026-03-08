@@ -29,6 +29,7 @@ def main():
     app.add_handler(CommandHandler("brief", brief_command))
     app.add_handler(CommandHandler("setting", setting_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_message))
 
     app.post_init = schedule_daily_briefings
 

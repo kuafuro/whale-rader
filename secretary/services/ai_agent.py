@@ -231,10 +231,18 @@ class SecretaryAgent:
             logger.error(f"Tool {name} error: {e}")
             return f"執行 {name} 時發生錯誤：{e}"
 
-    async def handle_message(self, chat_id: int, user_message: str) -> str:
+    async def handle_message(self, chat_id: int, user_message: str,
+                             image_bytes: bytes | None = None) -> str:
         session = self._get_session(chat_id)
 
-        response = session.send_message(user_message)
+        if image_bytes:
+            parts = [
+                types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=image_bytes)),
+                types.Part(text=user_message or "請分析這張圖片"),
+            ]
+            response = session.send_message(parts)
+        else:
+            response = session.send_message(user_message)
 
         # Handle function calling loop (max 5 rounds)
         for _ in range(5):
