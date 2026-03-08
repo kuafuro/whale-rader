@@ -17,34 +17,44 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 def _load_credentials(token_b64: str = None):
     token_b64 = token_b64 or config.GOOGLE_TOKEN_B64
     if not token_b64:
-        return None
+        return None, "GOOGLE_TOKEN_B64 未設定"
     try:
         token_json = base64.b64decode(token_b64).decode()
         creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        return creds
+        if creds.expired:
+            if creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                except Exception as e:
+                    return None, f"token 刷新失敗，請重新執行 auth_setup.py（{e}）"
+            else:
+                return None, "token 已過期且無 refresh_token，請重新執行 auth_setup.py"
+        return creds, None
     except Exception as e:
         logger.error(f"Calendar credentials error: {e}")
-        return None
+        return None, f"token 解析失敗：{e}"
 
 
 class CalendarService:
     def __init__(self, token_b64: str = None):
         self._token_b64 = token_b64  # None = use default from config
         self._creds = None
+        self._creds_error = None
 
     def _get_service(self):
         if not self._creds or not self._creds.valid:
-            self._creds = _load_credentials(self._token_b64)
+            self._creds, self._creds_error = _load_credentials(self._token_b64)
         if not self._creds:
             return None
         return build('calendar', 'v3', credentials=self._creds, cache_discovery=False)
 
+    def _no_service_msg(self) -> str:
+        return f"⚠️ Google Calendar 未連接：{getattr(self, '_creds_error', '未知原因')}"
+
     def get_events(self, date_str: str) -> str:
         service = self._get_service()
         if not service:
-            return "⚠️ Google Calendar 未連接（GOOGLE_TOKEN_B64 未設定）"
+            return self._no_service_msg()
         try:
             day = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=HKT)
             time_min = day.isoformat()
@@ -75,7 +85,7 @@ class CalendarService:
                   description: str = "") -> str:
         service = self._get_service()
         if not service:
-            return "⚠️ Google Calendar 未連接"
+            return self._no_service_msg()
         try:
             start_dt = datetime.strptime(f"{date} {time}", '%Y-%m-%d %H:%M').replace(tzinfo=HKT)
             end_dt = start_dt + timedelta(minutes=duration_minutes)
@@ -95,7 +105,7 @@ class CalendarService:
                      description: str = None) -> str:
         service = self._get_service()
         if not service:
-            return "⚠️ Google Calendar 未連接"
+            return self._no_service_msg()
         try:
             event = service.events().get(calendarId='primary', eventId=event_id).execute()
             if title:
@@ -130,7 +140,7 @@ class CalendarService:
     def delete_event(self, event_id: str) -> str:
         service = self._get_service()
         if not service:
-            return "⚠️ Google Calendar 未連接"
+            return self._no_service_msg()
         try:
             service.events().delete(calendarId='primary', eventId=event_id).execute()
             return f"✅ 已刪除事件（ID: {event_id}）"
