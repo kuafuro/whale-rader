@@ -218,7 +218,7 @@ class SecretaryAgent:
             elif name == "get_my_settings":
                 row = ms.get(chat_id)
                 display_name = row.get("display_name") or "（未設定）" if row else "（未設定）"
-                has_cal = bool(row.get("google_token_b64")) if row else False
+                has_cal = bool(config.get_google_token(chat_id))
                 cal_status = "✅ 已連接" if has_cal else "❌ 未設定"
                 return f"顯示名稱：{display_name}\nGoogle Calendar：{cal_status}"
 
