@@ -78,14 +78,22 @@ class TaskStore:
     def complete(self, task_id: str) -> str:
         if self._use_supabase:
             try:
+                import re
+                is_uuid = bool(re.match(r'^[0-9a-f-]{8,}', task_id.lower()))
+                if is_uuid:
+                    params = {"id": f"like.{task_id}%"}
+                else:
+                    params = {"title": f"ilike.*{task_id}*"}
+                if self._chat_id:
+                    params["chat_id"] = f"eq.{self._chat_id}"
                 r = requests.patch(
                     f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
                     headers=self._headers(),
-                    params={"id": f"like.{task_id}%"},
+                    params=params,
                     json={"completed": True}
                 )
                 if r.status_code in (200, 204):
-                    return f"✅ 任務 {task_id[:8]} 已標記完成"
+                    return f"✅ 任務已標記完成：{task_id}"
                 return f"更新失敗：{r.status_code} {r.text}"
             except Exception as e:
                 return f"錯誤：{e}"

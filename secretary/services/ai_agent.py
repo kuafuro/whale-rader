@@ -107,11 +107,11 @@ TOOLS = [types.Tool(function_declarations=[
     ),
     types.FunctionDeclaration(
         name="complete_task",
-        description="將任務標記為已完成",
+        description="將任務標記為已完成。task_id 可以是任務 UUID（前8碼即可）或任務標題關鍵字",
         parameters=types.Schema(
             type=types.Type.OBJECT,
             properties={
-                "task_id": types.Schema(type=types.Type.STRING, description="任務ID")
+                "task_id": types.Schema(type=types.Type.STRING, description="任務ID（UUID前8碼）或任務標題關鍵字")
             },
             required=["task_id"]
         )
