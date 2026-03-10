@@ -75,21 +75,43 @@ class TaskStore:
             lines.append(f"  {check} [{str(t['id'])[:8]}] {t['title']}{due}")
         return "\n".join(lines)
 
+    def _find_task_id(self, task_id: str) -> str | None:
+        """Find full UUID by partial UUID prefix or title keyword."""
+        import re
+        params = {"completed": "eq.false", "select": "id,title"}
+        if self._chat_id:
+            params["chat_id"] = f"eq.{self._chat_id}"
+        is_uuid_prefix = bool(re.match(r'^[0-9a-f]{8}', task_id.lower()))
+        if is_uuid_prefix:
+            params["id"] = f"eq.{task_id}" if len(task_id) == 36 else None
+            if params["id"] is None:
+                del params["id"]
+        r = requests.get(
+            f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
+            headers=self._headers(), params=params
+        )
+        if r.status_code != 200:
+            return None
+        rows = r.json()
+        for row in rows:
+            rid = str(row["id"])
+            if rid.startswith(task_id) or rid == task_id:
+                return rid
+        for row in rows:
+            if task_id.lower() in row["title"].lower():
+                return str(row["id"])
+        return None
+
     def complete(self, task_id: str) -> str:
         if self._use_supabase:
             try:
-                import re
-                is_uuid = bool(re.match(r'^[0-9a-f-]{8,}', task_id.lower()))
-                if is_uuid:
-                    params = {"id": f"like.{task_id}%"}
-                else:
-                    params = {"title": f"ilike.*{task_id}*"}
-                if self._chat_id:
-                    params["chat_id"] = f"eq.{self._chat_id}"
+                full_id = self._find_task_id(task_id)
+                if not full_id:
+                    return f"找不到任務：{task_id}"
                 r = requests.patch(
                     f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
                     headers=self._headers(),
-                    params=params,
+                    params={"id": f"eq.{full_id}"},
                     json={"completed": True}
                 )
                 if r.status_code in (200, 204):
@@ -99,7 +121,7 @@ class TaskStore:
                 return f"錯誤：{e}"
         else:
             for t in self._memory:
-                if t["id"] == task_id:
+                if t["id"] == task_id or task_id.lower() in t["title"].lower():
                     t["completed"] = True
                     return f"✅ 任務已完成：{t['title']}"
             return "找不到該任務"
