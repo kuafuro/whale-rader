@@ -81,12 +81,12 @@ class TaskStore:
                 r = requests.patch(
                     f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
                     headers=self._headers(),
-                    params={"id": f"eq.{task_id}"},
+                    params={"id": f"like.{task_id}%"},
                     json={"completed": True}
                 )
                 if r.status_code in (200, 204):
                     return f"✅ 任務 {task_id[:8]} 已標記完成"
-                return f"更新失敗：{r.status_code}"
+                return f"更新失敗：{r.status_code} {r.text}"
             except Exception as e:
                 return f"錯誤：{e}"
         else:
