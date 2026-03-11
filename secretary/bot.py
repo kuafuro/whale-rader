@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 import config
-from handlers.commands import start_command, help_command, status_command, brief_command
+from handlers.commands import start_command, help_command, status_command, brief_command, portfolio_command
 from handlers.message import handle_message
 from handlers.setting import setting_command
 from services.briefing import schedule_daily_briefings
@@ -28,6 +28,7 @@ def main():
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("brief", brief_command))
     app.add_handler(CommandHandler("setting", setting_command))
+    app.add_handler(CommandHandler("portfolio", portfolio_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_message))
 
