@@ -202,6 +202,20 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "delete_task",
+            "description": "永久刪除一個任務（無論是否完成）。task_id 可以是任務 UUID（前8碼即可）或任務標題關鍵字",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "description": "任務ID（UUID前8碼）或任務標題關鍵字"}
+                },
+                "required": ["task_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "check_team_status",
             "description": "查詢團隊狀態，包括 CFO（Whale Radar）的 GitHub Actions 運行狀況和最新警報",
             "parameters": {"type": "object", "properties": {}}
@@ -411,6 +425,9 @@ class SecretaryAgent:
 
             elif name == "complete_task":
                 return _get_task_store(chat_id).complete(args["task_id"])
+
+            elif name == "delete_task":
+                return _get_task_store(chat_id).delete(args["task_id"])
 
             elif name == "update_event":
                 return _get_calendar(chat_id).update_event(

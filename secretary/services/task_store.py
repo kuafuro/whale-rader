@@ -125,3 +125,26 @@ class TaskStore:
                     t["completed"] = True
                     return f"✅ 任務已完成：{t['title']}"
             return "找不到該任務"
+
+    def delete(self, task_id: str) -> str:
+        if self._use_supabase:
+            try:
+                full_id = self._find_task_id(task_id)
+                if not full_id:
+                    return f"找不到任務：{task_id}"
+                r = requests.delete(
+                    f"{config.SUPABASE_URL}/rest/v1/secretary_tasks",
+                    headers=self._headers(),
+                    params={"id": f"eq.{full_id}"}
+                )
+                if r.status_code in (200, 204):
+                    return f"🗑️ 任務已刪除：{task_id}"
+                return f"刪除失敗：{r.status_code} {r.text}"
+            except Exception as e:
+                return f"錯誤：{e}"
+        else:
+            for i, t in enumerate(self._memory):
+                if t["id"] == task_id or task_id.lower() in t["title"].lower():
+                    self._memory.pop(i)
+                    return f"🗑️ 任務已刪除：{t['title']}"
+            return "找不到該任務"
