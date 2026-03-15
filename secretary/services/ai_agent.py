@@ -376,7 +376,7 @@ class SecretaryAgent:
         # Function calling loop (max 5 rounds)
         for _ in range(5):
             response = self.client.chat.completions.create(
-                model="grok-4-1-fast-reasoning",
+                model="grok-3",
                 messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
                 tools=TOOLS,
             )
