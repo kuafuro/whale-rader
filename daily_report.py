@@ -209,7 +209,7 @@ def main():
 
     # Build Report
     date_str = hkt.strftime('%Y-%m-%d (%a)')
-    msg = f"🧑‍💼 <b>板本簡報</b> {date_str}\n"
+    msg = f"🧑‍💼 <b>Hayek 簡報</b> {date_str}\n"
     msg += f"{report_label}\n"
     msg += f"───────────────\n"
 
@@ -224,7 +224,7 @@ def main():
 
     msg += f"───────────────\n"
 
-    # AI: 板本軍師
+    # AI: Hayek (CFO)
     if gemini_client:
         portfolio_summary = "\n".join([
             f"{p['ticker']}: ${p['price']:.2f}, 今日{p['day_change_pct']:+.1f}%, 成本${p['avg_cost']:.2f}, P/L{p['pnl_pct']:+.1f}%, {p['sector']}"
@@ -232,7 +232,7 @@ def main():
         ])
         try:
             ai_prompt = (
-                f"你是「板本」，我的私人投資軍師。蔣名：冷靜、精準、不廢話。\n\n"
+                f"你是「Hayek」，我的 AI 財務長（CFO）。風格：冷靜、精準、不廢話。\n\n"
                 f"今天是 {date_str}。我的 eToro 持倉：\n{portfolio_summary}\n\n"
                 f"請搜尋最新新聞和財經日曆，用繁體中文寫以下內容。\n"
                 f"格式要求：每個區塊用 emoji + 粗體標題開頭，內容簡潔有力。\n\n"
