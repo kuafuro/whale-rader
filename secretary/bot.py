@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 def main():
     if not config.BOT_TOKEN:
         raise ValueError("SECRETARY_BOT_TOKEN not set")
-    if not config.XAI_API_KEY:
-        raise ValueError("XAI_API_KEY not set")
+    if not config.GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not set")
 
     app = Application.builder().token(config.BOT_TOKEN).build()
 
