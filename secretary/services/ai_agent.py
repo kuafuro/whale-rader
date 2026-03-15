@@ -284,8 +284,8 @@ TOOLS = [
 class SecretaryAgent:
     def __init__(self):
         self.client = OpenAI(
-            api_key=config.XAI_API_KEY,
-            base_url="https://api.x.ai/v1",
+            api_key=config.GEMINI_API_KEY,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
         self.histories = {}  # chat_id -> list of messages
 
@@ -390,7 +390,7 @@ class SecretaryAgent:
         # Function calling loop (max 5 rounds)
         for _ in range(5):
             response = self.client.chat.completions.create(
-                model="grok-4.20-beta",
+                model="gemini-3.1-pro-preview",
                 messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
                 tools=TOOLS,
             )
