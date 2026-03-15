@@ -29,14 +29,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = await context.bot.get_file(photo.file_id)
         image_bytes = await file.download_as_bytearray()
 
-    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-
     try:
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         reply = await _get_agent().handle_message(chat_id, user_message, image_bytes=image_bytes)
         try:
             await msg.reply_text(reply, parse_mode='HTML')
-        except Exception:
+        except Exception as html_err:
+            logger.warning(f"HTML parse failed, retrying as plain text: {html_err}")
             await msg.reply_text(reply)
     except Exception as e:
-        logger.error(f"Agent error: {e}")
+        logger.error(f"Agent error for chat {chat_id}: {e}", exc_info=True)
         await msg.reply_text("⚠️ 處理時發生錯誤，請再試一次。")

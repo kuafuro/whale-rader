@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 from datetime import datetime, timezone, timedelta
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 import requests as _requests
 import config
@@ -24,7 +24,6 @@ _task_stores: dict[int, TaskStore] = {}
 # Conversation history: chat_id -> list of message dicts
 # Loaded from Supabase on first access per chat_id
 _histories: dict[int, list] = {}
-_histories_loaded: set[int] = set()
 
 HISTORY_LIMIT = 30  # messages kept in DB query and in-memory
 
@@ -392,7 +391,7 @@ TOOLS = [
 
 class SecretaryAgent:
     def __init__(self):
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=config.GEMINI_API_KEY,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
@@ -400,7 +399,6 @@ class SecretaryAgent:
     def _get_history(self, chat_id: int) -> list:
         if chat_id not in _histories:
             _histories[chat_id] = _history_load(chat_id)
-            _histories_loaded.add(chat_id)
         return _histories[chat_id]
 
     def _append(self, chat_id: int, message: dict) -> None:
@@ -530,7 +528,7 @@ class SecretaryAgent:
         # Function calling loop (max 5 rounds)
         for _ in range(5):
             history = self._get_history(chat_id)
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model="gemini-3.1-pro-preview",
                 messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
                 tools=TOOLS,
