@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from openai import OpenAI
 
+import requests as _requests
 import config
 import services.member_settings as ms
 import services.reminder_store as reminder_store
@@ -19,6 +20,61 @@ logger = logging.getLogger(__name__)
 # Per-member service caches keyed by chat_id
 _calendars: dict[int, CalendarService] = {}
 _task_stores: dict[int, TaskStore] = {}
+
+# Conversation history: chat_id -> list of message dicts
+# Loaded from Supabase on first access per chat_id
+_histories: dict[int, list] = {}
+_histories_loaded: set[int] = set()
+
+HISTORY_LIMIT = 30  # messages kept in DB query and in-memory
+
+
+def _supabase_headers() -> dict:
+    return {
+        "apikey": config.SUPABASE_KEY,
+        "Authorization": f"Bearer {config.SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _history_load(chat_id: int) -> list:
+    """Fetch last HISTORY_LIMIT messages for chat_id from Supabase."""
+    if not (config.SUPABASE_URL and config.SUPABASE_KEY):
+        return []
+    try:
+        r = _requests.get(
+            f"{config.SUPABASE_URL}/rest/v1/secretary_chat_history",
+            headers=_supabase_headers(),
+            params={
+                "chat_id": f"eq.{chat_id}",
+                "order": "created_at.desc",
+                "limit": HISTORY_LIMIT,
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return []
+        rows = r.json()
+        # Rows are newest-first; reverse to get chronological order
+        return [row["message"] for row in reversed(rows)]
+    except Exception as e:
+        logger.error(f"History load error: {e}")
+        return []
+
+
+def _history_save(chat_id: int, message: dict) -> None:
+    """Append a single message to Supabase history."""
+    if not (config.SUPABASE_URL and config.SUPABASE_KEY):
+        return
+    try:
+        _requests.post(
+            f"{config.SUPABASE_URL}/rest/v1/secretary_chat_history",
+            headers=_supabase_headers(),
+            json={"chat_id": str(chat_id), "message": message},
+            timeout=10,
+        )
+    except Exception as e:
+        logger.error(f"History save error: {e}")
 
 
 def _get_calendar(chat_id: int) -> CalendarService:
@@ -312,12 +368,21 @@ class SecretaryAgent:
             api_key=config.GEMINI_API_KEY,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
-        self.histories = {}  # chat_id -> list of messages
 
     def _get_history(self, chat_id: int) -> list:
-        if chat_id not in self.histories:
-            self.histories[chat_id] = []
-        return self.histories[chat_id]
+        if chat_id not in _histories:
+            _histories[chat_id] = _history_load(chat_id)
+            _histories_loaded.add(chat_id)
+        return _histories[chat_id]
+
+    def _append(self, chat_id: int, message: dict) -> None:
+        """Append message to in-memory history and persist to Supabase."""
+        history = self._get_history(chat_id)
+        history.append(message)
+        # Trim in-memory to HISTORY_LIMIT
+        if len(history) > HISTORY_LIMIT:
+            del history[:-HISTORY_LIMIT]
+        _history_save(chat_id, message)
 
     async def _execute_tool(self, name: str, args: dict, chat_id: int) -> str:
         try:
@@ -420,8 +485,6 @@ class SecretaryAgent:
 
     async def handle_message(self, chat_id: int, user_message: str,
                              image_bytes: bytes | None = None) -> str:
-        history = self._get_history(chat_id)
-
         if image_bytes:
             b64 = base64.b64encode(image_bytes).decode()
             user_content = [
@@ -431,17 +494,19 @@ class SecretaryAgent:
         else:
             user_content = user_message
 
-        history.append({"role": "user", "content": user_content})
+        self._append(chat_id, {"role": "user", "content": user_content})
 
         # Function calling loop (max 5 rounds)
         for _ in range(5):
+            history = self._get_history(chat_id)
             response = self.client.chat.completions.create(
                 model="gemini-3.1-pro-preview",
                 messages=[{"role": "system", "content": SYSTEM_PROMPT}] + history,
                 tools=TOOLS,
             )
             msg = response.choices[0].message
-            history.append(msg)
+            msg_dict = msg.model_dump(exclude_none=True)
+            self._append(chat_id, msg_dict)
 
             if not msg.tool_calls:
                 return (msg.content or "✅ 完成。").strip()
@@ -451,11 +516,8 @@ class SecretaryAgent:
                 args = json.loads(tc.function.arguments)
                 logger.info(f"Calling tool: {name}({args})")
                 result = await self._execute_tool(name, args, chat_id)
-                history.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result,
-                })
+                tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
+                self._append(chat_id, tool_msg)
 
         return "✅ 完成。"
 

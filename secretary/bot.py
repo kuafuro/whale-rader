@@ -35,6 +35,7 @@ def main():
 
     async def post_init(app):
         reminder_store.set_app(app)
+        reminder_store.load_pending_reminders()
         await schedule_daily_briefings(app)
 
     app.post_init = post_init
