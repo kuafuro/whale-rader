@@ -124,8 +124,8 @@ def main():
         print(f"US market holiday ({us_date}), skipping")
         return
 
-    report_type = "morning" if hkt.hour < 12 else "premarket"
-    report_label = "🌅 收盤報告" if report_type == "morning" else "🌕 盤前報告"
+    report_type = "post_close" if hkt.hour < 12 else "pre_open"
+    report_label = "🌅 收盤報告" if report_type == "post_close" else "🌕 盤前報告"
     print(f"Report type: {report_type} (HKT {hkt.strftime('%H:%M')})")
 
     # Get Holdings
